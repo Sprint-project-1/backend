@@ -40,8 +40,6 @@ pnpm test                      # ⑧ 영화 선정 규칙 단위 테스트
 pnpm dev                       # ⑨ Express 서버 실행 (기본 3000번 포트)
 ```
 
-> **기존 DB 사용자:** 이 ZIP에는 `funding_goal` 컬럼을 제거하는 새 마이그레이션이 포함되어 있습니다. `pnpm db:migrate` → `pnpm db:generate`를 적용하면 됩니다. 기존 초기 마이그레이션은 그대로 보존하며, `migrate reset`은 실행하지 마세요.
-
 - **PowerShell**이라면 ②번 명령 대신 `Copy-Item .env.example .env`를 실행하세요.
 - 이미 `.env`가 있다면 덮어쓰지 말고 **3절**의 값이 맞는지 확인하세요.
 - `pnpm db:seed`는 `시딩 완료: 총 100편`, `pnpm test:db`는 `DB 테스트 통과`가 출력되면 정상입니다.
