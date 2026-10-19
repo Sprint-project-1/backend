@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:18
+    container_name: cinefund-postgres18
+    environment:
+      POSTGRES_USER: cinefund
+      POSTGRES_PASSWORD: cinefund_local
+      POSTGRES_DB: cinefund
+    ports:
+      - "127.0.0.1:5435:5432"
+    volumes:
+      - postgres18_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cinefund -d cinefund"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres18_data:
