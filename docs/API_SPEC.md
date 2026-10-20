@@ -71,8 +71,8 @@
 | Method | Path | 상태 | 기능 |
 |---|---|---|---|
 | `GET` | `/health` | 구현됨 | 서버 상태 확인 |
-| `GET` | `/api/movies` | 미구현 | 영화 목록·제목 검색·정렬·페이지네이션 |
-| `GET` | `/api/movies/{movieId}` | 미구현 | 영화 상세 조회 |
+| `GET` | `/api/movies` | 구현됨 | 영화 목록·제목 검색·정렬·페이지네이션 |
+| `GET` | `/api/movies/{movieId}` | 구현됨 | 영화 상세 조회 |
 | `GET` | `/api/movies/{movieId}/comments` | 미구현 | 영화별 코멘트 조회 |
 | `POST` | `/api/movies/{movieId}/fundings` | 미구현 | 익명 모의 펀딩 생성 |
 | `POST` | `/api/fundings/{fundingId}/cancel` | 미구현 | 비밀번호 검증 후 모의 펀딩 취소 |
