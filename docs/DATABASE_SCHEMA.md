@@ -1,146 +1,79 @@
-# 데이터베이스 스키마 초안
+# 데이터베이스 스키마
 
-> 이 문서는 현재 구현과 팀 검토용 제안을 함께 기록한다. **DB 구조의 실제 기준은 `prisma/schema.prisma`와 `prisma/migrations/`**이며, 아래 "테이블 제안"의 TBD 항목이 모두 구현되었다는 뜻은 아니다. `list DB`, `funding DB`는 논리 영역이다. 영화 100편은 `data/movieDetails.json`에서 seed로 적재하며, TMDB 재조회는 별도 선정 스크립트에서 수행한다. 팀원은 각자 로컬 PostgreSQL을 실행하고 같은 migration·seed 절차를 따른다.
+> 현재 구현 기준 문서. 기준 파일은 `prisma/schema.prisma`와 적용된 migration이다. API는 아직 구현 전이며, 아래 API 계약은 `docs/API_SPEC.md`를 따른다.
 
-## 현재 구현과 미확정 항목
-
-`prisma/schema.prisma`는 이 문서의 관계/식별자 구조(movie 내부 PK와 고유 tmdb_id, funding FK, 후원 원장)를 반영한다. 이는 문서 전체를 팀 확정 규격으로 승격한 뜻은 아니다. 다음 항목은 팀 결정 전 임의 적용하지 않는다.
-
-- `genres`는 현재 저장된 PostgreSQL `TEXT[]`를 유지한다. 문서의 JSONB 또는 정규화 제안은 TBD다.
-- 영화 100편은 **제작비 최소 3,500만 원 상당**인 작품만 선정한다. 선정용 고정 환율은 **1 USD = 1,400 KRW**이므로 TMDB 제작비(`budget`)가 **25,000 USD 이상**이어야 한다. 제작비 0·미상·기준 미달 영화는 선정/시드에서 제외한다. 선정 영화의 제작비 원본(USD)은 `production_budget`에 저장하고 후원액·누적액은 KRW로 관리한다. 펀딩 목표액은 별도로 저장하지 않는다.
-- 현재 후원 코멘트는 스키마상 필수이며 `Funding.comment`도 `NOT NULL`로 유지한다. 빈 문자열(빈 코멘트)을 API에서 허용할지는 TBD다.
-- `originalTitle`과 `koreanCertification`은 `20261018092607_init` 마이그레이션에 이미 반영된 nullable 컬럼이다. 이번 변경은 `20261019120000_remove_funding_goal` 마이그레이션으로 목표액 컬럼만 제거하며, 기존 init SQL은 변경하지 않는다.
-- 금액 양수 CHECK, 최소/최대 금액, 원장 합계의 자동 일관성 보장 방식은 서버/API 합의 전 추가하지 않는다.
-- `budget_currency`는 기존 데이터에 근거해 명시적으로 확정할 수 없어 아직 컬럼으로 만들지 않았다.
-- 현재 migration은 `fundings.created_at TIMESTAMPTZ(3)`로 신규 테이블을 생성한다. 과거 DB의 `funded_at TIMESTAMP` 같은 레거시 데이터가 실제로 있다면 별도의 이전·시각대 검증이 필요하며, 이번 ZIP의 마이그레이션이 자동 변환한다고 가정하지 않는다. 운영 DB는 적용 전 백업·정합성을 별도 확인한다.
-
-## 관계
+## 현재 구현된 모델
 
 ```mermaid
 erDiagram
   MOVIE ||--o{ FUNDING : receives
   MOVIE {
-    int movie_id PK
-    int tmdb_id UK
+    int movieId PK
+    int tmdbId UK
     string title
-    string poster_path
+    string posterPath
     string overview
     string director
-    date release_date
-    string original_title
-    string korean_certification
+    date releaseDate
+    string_array genres
+    string_array actors
+    string originalTitle
+    string koreanCertification
     string tagline
-    string[] genres
-    string[] actors
-    bigint production_budget
-    bigint total_funded_amount
-    datetime created_at
-    datetime updated_at
+    bigint productionBudget
+    bigint totalFundedAmount
+    datetime createdAt
+    datetime updatedAt
   }
   FUNDING {
-    bigint funding_id PK
-    int movie_id FK
+    bigint fundingId PK
+    int movieId FK
     string nickname
     bigint amount
     string comment
-    string password_hash
-    datetime created_at
-    datetime updated_at
+    string passwordHash
+    datetime createdAt
+    datetime updatedAt
   }
 ```
 
-## 테이블 제안
-
-| 테이블.컬럼 | 타입 제안 | 제약/설명 |
+| 모델.필드 | Prisma 타입 / 제약 | 의미 |
 |---|---|---|
-| Movie.movie_id | SERIAL/INTEGER | PK 내부 ID |
-| Movie.tmdb_id | INTEGER | UNIQUE NOT NULL, 외부 식별자 |
-| Movie.title | TEXT | NOT NULL (현재 PostgreSQL 타입) |
-| Movie.poster_path | TEXT | NULL 허용. TMDB 포스터 경로가 현재 JSON/DB에 저장됨 |
-| Movie.overview | TEXT | NULL 허용. 영화 설명이 현재 JSON/DB에 저장됨 |
-| Movie.director | TEXT | NULL 허용. `credits`의 감독명(복수인 경우 `, `로 연결)이 현재 JSON/DB에 저장됨 |
-| Movie.release_date | DATE | NULL 허용 |
-| Movie.genres | TEXT[] | **현재 구현**: `String[] @default([])`; JSONB/정규화는 향후 TBD |
-| Movie.actors | TEXT[] | **현재 구현**: `String[] @default([])`; TMDB `credits.cast`의 출연 배우 이름 최대 10명 |
-| Movie.original_title | TEXT | **현재 구현**: nullable, TMDB 원제 (`originalTitle`) |
-| Movie.korean_certification | TEXT | **현재 구현**: nullable, 한국 관람 등급 (`koreanCertification`) |
-| Movie.tagline | TEXT | NULL 허용 |
-| Movie.production_budget | BIGINT | NULL 가능, TMDB 값 USD 기준, 환산하지 않고 숫자 저장 |
-| Movie.budget_currency | CHAR(3) **제안** | 현재 미구현; 통화 보존 컬럼 추가 여부 TBD |
-| Movie.total_funded_amount | BIGINT | KRW, NOT NULL DEFAULT 0; 초기 적재 시 0. 테스트용 펀딩 기록을 추가하면 합계와 일치하도록 갱신 |
-| Movie.created_at / updated_at | TIMESTAMPTZ | NOT NULL, 기본 현재 시각 |
-| Funding.funding_id | BIGSERIAL | PK (`Funding.fundingId`: Prisma BigInt) |
-| Funding.movie_id | INTEGER | FK → Movie.movie_id, NOT NULL, 삭제 정책 restrict 제안 |
-| Funding.nickname | VARCHAR(8) | **현재 구현** NOT NULL; trim·빈값 검사는 추후 API 검증 규칙 |
-| Funding.amount | BIGINT | KRW, **현재 구현** NOT NULL. `CHECK(amount > 0)`은 미구현 제안, 최소/최대 TBD |
-| Funding.comment | VARCHAR(100) | **현재 구현** NOT NULL. 빈 문자열 허용 여부/검증은 TBD |
-| Funding.password_hash | TEXT | NOT NULL, 검증 가능한 강한 단방향 해시만 저장 |
-| Funding.created_at / updated_at | TIMESTAMPTZ | NOT NULL; 최신순 기준은 created_at, funding_id tie-break |
+| `Movie.movieId` | `Int`, 자동 증가, PK | CineFund 내부 영화 ID |
+| `Movie.tmdbId` | `Int`, unique | TMDB 외부 식별자 |
+| `Movie.title` | `String` | 한국어 영화 제목 |
+| `Movie.posterPath`, `overview`, `director` | nullable `String` | 포스터 경로, 줄거리, 감독 |
+| `Movie.releaseDate` | nullable `DateTime @db.Date` | 개봉일 |
+| `Movie.genres`, `actors` | `String[]`, 기본 빈 배열 | 장르 및 출연진 문자열 목록 (JSON 컬럼이 아님) |
+| `Movie.originalTitle`, `koreanCertification`, `tagline` | nullable `String` | 원제, 한국 관람 등급, 태그라인 |
+| `Movie.productionBudget` | nullable `BigInt` | TMDB 제작비 숫자를 원본 그대로 저장. seed 데이터는 USD 기준이며 환율 변환하지 않음 |
+| `Movie.totalFundedAmount` | `BigInt`, 기본값 `0` | 누적 모의 펀딩액. 화면/서비스 계약의 통화는 KRW |
+| `Movie.createdAt`, `updatedAt` | `DateTime`, timestamptz(3) | 생성/수정 시각 |
+| `Funding.fundingId` | `BigInt`, 자동 증가, PK | 펀딩 기록 ID |
+| `Funding.movieId` | `Int`, FK → `Movie.movieId` | 대상 영화. 영화 삭제는 `Restrict` |
+| `Funding.nickname` | `VarChar(8)` | 펀딩 표시 이름 |
+| `Funding.amount` | `BigInt` | 모의 펀딩 금액 (KRW) |
+| `Funding.comment` | `VarChar(100)`, 필수 | 펀딩 코멘트. 빈 문자열 허용 여부는 API 입력 규칙과 함께 확인 |
+| `Funding.passwordHash` | `String` | 코멘트 수정/취소 검증용 해시만 저장. 평문 금지 |
+| `Funding.createdAt`, `updatedAt` | `DateTime`, timestamptz(3) | 생성/수정 시각 |
 
-외부 TMDB 식별자에는 `tmdb_id` 컬럼명을 API/DB에서 사용한다. 영화 선정 시 TMDB 제작비(`budget`)가 **25,000 USD 이상(고정 환율 1 USD = 1,400 KRW 기준 한화 3,500만 원 상당)**인 작품 100편만 포함하고, 제작비 0·미상·기준 미달 영화는 제외한다. 초기 seed는 검증된 USD 제작비 원본만 `production_budget`에 저장하고, 누적 후원액·후원 기록은 보존한다. 기존 DB를 마이그레이션할 때는 후원 데이터 백업과 통화를 확인한다.
+Funding에는 `(movieId, createdAt, fundingId)` 인덱스가 있다. 실제 필드, 컬럼 매핑, 기본값과 제약은 현재 Prisma schema/migration을 우선한다.
 
-## Prisma 모델 — 현재 구현 기준
+## 데이터 적재와 금액 규칙
 
-아래 코드는 현재 `prisma/schema.prisma`의 **두 모델을 그대로 발췌**한 것이다. **수정할 때는 실제 `prisma/schema.prisma`를 먼저 변경하고 migration을 함께 관리**한다. 표의 `budget_currency`, `genres` JSONB/정규화, 후원 금액 CHECK 등은 팀 검토 제안(TBD)이며 아래 구현에 임의로 추가하지 않았다.
+- 고정 선정 목록과 영화 상세 데이터는 `data/movieDetails.json`에 저장한다. `pnpm movies:select`는 영화 선정 단계에서 TMDB를 사용하고, `pnpm db:seed`는 JSON 파일만 읽어 `Movie`를 upsert한다. 앱의 영화 조회 요청마다 TMDB를 호출하지 않는다.
+- 선정 기준의 25,000 USD는 영화 선정을 위한 기준이다. 선택에 쓰는 기준 환율(1 USD = 1,400 KRW)은 3,500만 원 상당 여부를 판단하기 위한 값이며, 저장된 `productionBudget`을 변환하는 환율이 아니다.
+- 팀의 표시 정책은 `productionBudget`의 숫자를 환산 없이 같은 숫자의 KRW 목표액 표시값으로 사용하고, 달성률을 `totalFundedAmount / productionBudget × 100`으로 계산하는 것이다. `productionBudget`이 NULL 또는 0이면 달성률을 계산하지 않는다. 별도 `fundingGoal` 컬럼은 없다.
+- `totalFundedAmount`는 펀딩 원장 합계와 일치해야 한다. 펀딩 생성/취소와 누적액 증감은 한 트랜잭션으로 처리한다. 동시성 제어와 재집계 구현은 API 구현 시 검증한다.
+- seed 재실행은 고정 TMDB ID를 기준으로 upsert한다. 기존 누적액과 펀딩 기록은 덮어쓰지 않으며, 고정 목록 밖 영화가 DB에 있으면 자동 삭제하지 않고 중단한다.
 
-```prisma
-model Movie {
-  movieId             Int       @id @default(autoincrement()) @map("movie_id")
-  tmdbId              Int       @unique @map("tmdb_id")
-  title               String
-  posterPath          String?   @map("poster_path")
-  overview            String?
-  director            String?
-  releaseDate         DateTime? @map("release_date") @db.Date
-  // Array storage is retained from the current DB until the schema draft's JSONB/normalization TBD is decided.
-  genres              String[]  @default([])
-  actors              String[]  @default([]) // 출연 배우 이름 (최대 10명)
-  originalTitle       String?   @map("original_title")        // 영화 원제
-  koreanCertification String?   @map("korean_certification")  // 한국 관람 등급
-  tagline             String?
-  productionBudget    BigInt?   @map("production_budget")
-  totalFundedAmount   BigInt    @default(0) @map("total_funded_amount")
-  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  fundings            Funding[]
+## API 직렬화와 검증
 
-  @@map("movies")
-}
+- PostgreSQL `BigInt` 값은 JSON number의 정밀도 손실을 피하도록 API에서 문자열로 반환한다. 클라이언트는 금액 산술을 부동소수점으로 처리하지 않는다.
+- 펀딩 비밀번호 계약은 영문자와 숫자를 각각 하나 이상 포함하는 8~12자다. 서버는 평문을 저장하거나 응답/로그에 남기지 않고 검증 가능한 단방향 해시만 보관한다.
+- `Funding.amount`의 허용 최소·최대, 닉네임/코멘트의 공백·문자 길이 세부 규칙은 `docs/API_SPEC.md`에 명시된 결정 상태를 따른다. DB 제약과 서버 검증을 함께 적용한다.
 
-model Funding {
-  fundingId    BigInt   @id @default(autoincrement()) @map("funding_id")
-  movieId      Int      @map("movie_id")
-  nickname     String   @db.VarChar(8)
-  amount       BigInt
-  comment      String   @db.VarChar(100)
-  passwordHash String   @map("password_hash")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  movie        Movie    @relation(fields: [movieId], references: [movieId], onDelete: Restrict)
+## 로컬 DB 운영
 
-  @@index([movieId, createdAt, fundingId])
-  @@map("fundings")
-}
-```
-
-Prisma만으로 표현하지 않은 검증 항목(예: 금액 양수 CHECK)은 아직 팀 결정 전 제안이다. 컬럼 길이와 후원 금액 검증의 최종 정책은 서버/API 구현 시 합의한다.
-
-## 집계, 동시성, 정책
-
-> 현재 DB에는 포스터/설명/감독 및 `total_funded_amount` 컬럼이 구현되어 있다. 초기 데이터는 총액 0으로 시작한다. 실제 구현 시 원장 합계와 캐시 일관성 유지 방식을 팀이 검토한다.
-
-- 원장은 `Funding.amount` 기록이며 `total_funded_amount`는 표시/정렬을 위한 집계값 제안이다. 값은 Funding 합계와 항상 일치해야 한다.
-- 초기 영화 적재 시 `total_funded_amount=0`으로 둔다. 초기 Funding 원장 데이터가 없으면 누적액 0을 의미한다. 정렬 검증에 필요한 테스트 금액은 개발 전용 Funding fixture/seed로 넣고 실사용 데이터와 분리한다.
-- Funding insert와 집계값 증가를 한 DB 트랜잭션에서 수행하고 동시 요청에서 원자적 증가/잠금을 사용한다. 읽기-계산-쓰기는 lost update를 일으킬 수 있다. 정기 재집계로 원장 합계와 검증하는 방안도 검토한다.
-- 현재 스키마에는 펀딩 목표액이 없어 달성률을 계산하지 않는다. 달성률 UI/정렬이 필요한 경우 팀이 별도 목표 기준을 확정하고 DB/API를 재설계해야 한다.
-- Movie 삭제는 FK 보호를 위해 기본 restrict 제안. Funding 삭제/수정(금액 변경)은 감사·집계 정책 결정 전 허용하지 않는 안을 제안한다. 코멘트 수정은 Funding.comment만 변경한다.
-- 비밀번호 해시는 응답/로그 금지. salt/알고리즘 비용은 사용 라이브러리 검토 후 결정한다.
-
-## 팀 개발 환경에서의 DB 동기화 제안
-
-- 저장소의 Prisma schema와 migration 파일을 DB 구조의 단일 기준으로 관리한다. 로컬에서 schema를 임의로 수정해 migration 없이 사용하는 방식은 피한다.
-- 각 팀원은 Docker로 자기 컴퓨터에 PostgreSQL을 실행하고 같은 migration을 적용한다. DB 데이터/볼륨은 개인 로컬 개발 데이터이므로 팀 공용 데이터로 취급하거나 Git에 올리지 않는다.
-- 공통 영화 100편은 버전 관리 중인 `data/movieDetails.json`에서 `prisma/seed.js`가 읽어 저장한다. 선정 시 TMDB 조회는 `src/movies/selectMovies.js`에서 별도로 실행하는 절차이며, 팀원이 시드할 때마다 인기순 목록을 다시 뽑지 않는다. seed는 영화 메타데이터를 upsert하되 기존 누적 후원액·후원 기록은 덮어쓰지 않는다.
-- `prisma/seed.js`는 고정 JSON을 읽으므로 TMDB API 키가 필요 없다. 영화 목록을 새로 선정할 때만 TMDB API 키를 로컬 환경변수에서 사용한다. 재선정 여부는 팀 합의 후 결정한다.
-- 공유 DB가 필요한 통합 테스트/배포 환경은 로컬 개발 DB와 분리해 별도 선택·접근 통제한다. 로컬 `.env`의 `DATABASE_URL`과 API 키는 커밋하지 않고 `.env.example`에는 변수명과 설명만 둔다.
-- 첨부된 DB 준비 코드의 개발 환경은 PostgreSQL 18, Docker Compose, 로컬 포트 5435이며 `pnpm db:up` → `pnpm db:migrate` → `pnpm db:generate` → `pnpm db:seed` → `pnpm test:db` 순으로 실행한다. 팀 저장소 `main`에 통합할 때는 팀 운영 설정을 별도로 확인한다.
+- 팀원별 Docker PostgreSQL은 독립 데이터베이스이며, 공통 기준은 Prisma schema와 migration이다. 로컬 데이터/볼륨과 `.env`는 Git에 올리지 않는다.
+- migration이 데이터베이스 구조의 이력이다. schema를 직접 바꾸고 migration 없이 공유하지 않는다. 공용 통합/운영 DB는 별도 결정 사항이다.
