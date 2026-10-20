@@ -1,6 +1,6 @@
 # 코딩 컨벤션
 
-> 이전 확인한 FE GitHub `main`은 JavaScript/JSX, Vite, ESLint flat config를 사용한다. **이번 BE ZIP은 JavaScript ESM, Express 5.3.0, Prisma 7.10.0, pnpm 11.26.0을 사용**하며 FE와 파일 구조가 다르다. 아래 세부 네이밍 규칙은 팀 제안이며 합의 후 필수화한다. Airbnb 설정 글은 2020년 CRA 중심이므로 설정 파일을 그대로 복사하지 않는다.
+> 현재 GitHub `main`은 JavaScript/JSX, Vite, ESLint flat config를 사용한다. 아래 세부 네이밍 규칙은 저장소 설정에 없는 팀 제안이며 팀 합의 후 필수화한다. Airbnb 설정 글은 2020년 CRA 중심이므로 설정 파일을 그대로 복사하지 않는다.
 
 ## 참고자료 및 확인 범위
 
@@ -33,28 +33,19 @@ JS는 `const` 우선, 재할당 필요 시 `let`, `var` 금지 제안. `===` 사
 
 외부 패키지 → 내부 절대/별칭 → 상대 경로 순으로 그룹화하고 각 그룹 내 정렬 여부는 formatter/linter로 통일한다. 별칭은 빌드 설정 전제 확인.
 
-**현재 BE ZIP의 실제 구조:**
-
 ```text
 src/
-  app.js             # Express 앱 + /health, BigInt JSON 변환
-  server.js          # Express 실행
-  config/db.js       # Prisma DB 연결
-  movies/            # TMDB 선정, JSON 검증
-  utils/checkDb.js   # DB 100편 검증
+  components/  pages/  api/  hooks/  utils/  styles/
+server/
+  routes/  services/  repositories/  middleware/
 prisma/
-  schema.prisma      # Movie, Funding
-  migrations/        # migration 2개
-  seed.js            # JSON 100편 upsert
-data/movieDetails.json
-tests/movieData.test.js
 ```
 
-이전 확인한 FE `main`의 코드는 `client/` 아래에 있었다. 이 BE ZIP은 별도 폴더로 전달되었으며, **팀 `main`에 병합됐는지와 최종 저장소 운영 방식은 이 ZIP만으로 확정할 수 없다.** `routes/`, `services/`, `middleware/` 분리는 **추후 영화·펀딩 API 구현 제안**이며 현재 존재하는 폴더가 아니다.
+프런트엔드 파일은 별도 `Sprint-project-1/cine-fund` 저장소에서 관리한다. 이 저장소는 Node.js/Express 백엔드이며, JavaScript ESM과 현재 코드 구조에 맞춰 작성한다. 서버 코드 규칙은 이 저장소의 실제 디렉터리와 lint 설정을 기준으로 한다.
 
 ## ESLint / Prettier
 
-이전에 확인한 **FE 저장소**에는 ESLint flat config와 `pnpm lint` 스크립트가 있다. **현재 BE ZIP에는 `pnpm lint` 스크립트나 ESLint 설정이 없다.** FE `package.json`에서 Prettier는 확인되지 않았으므로 이미 쓰고 있다고 간주하지 않는다. Prettier나 Airbnb 규칙 추가는 선택 사항이며 ESLint 10, flat config, 기존 React Hooks/Refresh 설정과 호환성을 확인한 후 합의한다. 구형 `.eslintrc`/CRA 설정을 무조건 복사하지 않는다. TypeScript는 현재 사용하지 않으며, Vite 템플릿 README의 일반 권장사항만으로 도입을 확정하지 않는다.
+현재 저장소에는 ESLint flat config와 `pnpm lint` 스크립트가 있다. 저장소 `package.json`에서 Prettier를 확인하지 못했으므로 이미 쓰고 있다고 간주하지 않는다. Prettier나 Airbnb 규칙 추가는 선택 사항이며 ESLint 10, flat config, 기존 React Hooks/Refresh 설정과 호환성을 확인한 후 합의한다. 구형 `.eslintrc`/CRA 설정을 무조건 복사하지 않는다. TypeScript는 현재 사용하지 않으며, Vite 템플릿 README의 일반 권장사항만으로 도입을 확정하지 않는다.
 
 ## 좋은 코드와 나쁜 코드
 

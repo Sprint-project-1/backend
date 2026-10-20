@@ -2,13 +2,13 @@
 
 > 시작일/마감일과 기간은 미제공. 날짜를 추정하지 않고 합의 후 입력한다.
 
-> 구현 현황(2026-10-19 백엔드 코드 기준): 과거 확인한 `main`에는 FE Vite/React scaffold가 있고, **BE ZIP에는** Docker PostgreSQL 18·Prisma 7.10.0 schema/migration·영화 JSON 100편/시드·Express `/health`가 준비됐다. **팀 `main` 병합·실제 DB 재현 검증·서비스 API는 완료로 보지 않는다.** 마일스톤의 날짜는 팀 결정 전 TBD다.
+> 저장소 현황: 프런트엔드는 별도 저장소에 scaffold와 화면을 보유하고 있다. 이 백엔드 저장소에는 Express health endpoint, Prisma schema/migration, PostgreSQL Compose 및 JSON seed 골격이 있다. 영화·비교·펀딩 서비스 API와 FE 연동은 미완료다. 마일스톤은 현재 상태에서 이어지는 작업 계획이다.
 
 | 단계 | 시작 | 종료 | 산출물 | 완료 조건 |
 |---|---|---|---|---|
 | M0 기획 및 설계 | TBD | TBD | 요구사항, 결정 기록, API/DB/화면 명세 | 핵심 TBD 담당자와 결론이 기록됨 |
-| M1 개발 환경 구축 | TBD | TBD | FE scaffold 확인, **BE 준비 코드 존재**(Express 골격·PostgreSQL 18 Compose·Prisma migration/seed·고정 영화 100편 JSON), GitHub 규칙 | 팀원별 `pnpm db:up/migrate/generate/seed/test:db` 재현 및 FE/BE 통합 방식 확인까지 필요 |
-| M2 DB 및 API | TBD | TBD | **DB/seed 코드 준비**, Express `GET /health` 구현; **영화 목록/상세/비교/펀딩 서비스 API 미구현** | DB 실제 데이터 검증과 P0 내부 API 동작, 누적 후원액의 KRW 단위 정합성 확인; 앱 요청에서 TMDB 호출 없음 |
+| M1 개발 환경 구축 | TBD | TBD | 현재 FE scaffold 실행 절차 확인, 백엔드 구조, Docker 기반 로컬 PostgreSQL, Prisma migration/seed, 고정 TMDB ID 목록 및 import 절차, GitHub 규칙 | 팀원이 pnpm으로 현재 FE를 실행하고, 이후 같은 schema와 고정 영화 100편을 각자 로컬 DB에 재현 가능 |
+| M2 DB 및 API | TBD | TBD | Prisma schema/seed/import, CineFund 내부 P0 API | TMDB 메타데이터를 사전 적재하고 내부 목록/상세/비교/모의 펀딩 API가 DB를 제공; 앱 요청에서 TMDB 실시간 호출 없음 |
 | M3 FE 구현 | TBD | TBD | Figma의 데스크톱·태블릿·모바일 기준 목록/상세/비교/결과/랭킹 화면 | 시안의 검색·펀딩·코멘트 수정·AI UI를 반영하되, 미확정 API 기능은 계약 합의 후 연결. 로딩/빈/오류 상태 포함 |
 | M4 FE/BE 연동 | TBD | TBD | 통합 앱 | 주요 흐름이 실제 API로 연결됨 |
 | M5 테스트 | TBD | TBD | 테스트 결과와 결함 목록 | P0 시나리오 통과, 남은 위험 기록 |
