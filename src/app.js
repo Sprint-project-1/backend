@@ -1,4 +1,6 @@
 import express from "express";
+import { notFound } from "./middlewares/notFound.js";
+import { errorHandler } from "./middlewares/errorHandler.js";
 
 const app = express();
 
@@ -15,5 +17,8 @@ app.set("json replacer", (key, value) =>
 app.get("/health", (req, res) => {
   res.json({ message: "서버 정상 작동!" });
 });
+
+app.use(notFound);
+app.use(errorHandler);
 
 export default app;
