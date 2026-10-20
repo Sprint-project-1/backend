@@ -1,6 +1,7 @@
 import express from "express";
 import { notFound } from "./middlewares/notFound.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
+import movieRoutes from "./routes/movieRoutes.js";
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.get("/health", (req, res) => {
   res.json({ message: "서버 정상 작동!" });
 });
 
+app.use("/api/movies", movieRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
