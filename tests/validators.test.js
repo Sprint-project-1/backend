@@ -4,6 +4,7 @@ import {
   parseMovieId,
   parseFundingId,
   parseLimit,
+  parseListQuery,
 } from "../src/utils/validators.js";
 
 test("parseMovieId: 올바른 값은 숫자로 바꿔 준다", () => {
@@ -46,5 +47,47 @@ test("parseLimit: 0, 최대 초과, 숫자 아님은 400", () => {
   const badValues = [ "0", "51", "abc", "1.5", "", ["1", "2"]];
   for (const value of badValues) {
     assert.throws(() => parseLimit(value, 20, 50), { status: 400 });
+  }
+});
+
+test("parseListQuery: 아무것도 없으면 기본값", () => {
+  assert.deepEqual(parseListQuery({}), {
+    limit: 20,
+    q: null,
+    sortBy: null,
+    order: null,
+  });
+});
+
+test("parseListQuery: q는 앞뒤 공백을 제거하고, 공백뿐이면 null", () => {
+  assert.equal(parseListQuery({ q: "  기생충 " }).q, "기생충");
+  assert.equal(parseListQuery({ q: "   " }).q, null);
+});
+
+test("parseListQuery: sortBy만 있으면 order는 desc", () => {
+  const result = parseListQuery({ sortBy: "amount" });
+  assert.equal(result.sortBy, "amount");
+  assert.equal(result.order, "desc");
+});
+
+test("parseListQuery: sortBy와 order를 함께 쓸 수 있다", () => {
+  const result = parseListQuery({ sortBy: "achievementRate", order: "asc" });
+  assert.equal(result.sortBy, "achievementRate");
+  assert.equal(result.order, "asc");
+});
+
+test("parseListQuery: order만 있으면 400", () => {
+  assert.throws(() => parseListQuery({ order: "asc" }), { status: 400 });
+});
+
+test("parseListQuery: 허용되지 않는 값은 400", () => {
+  const badQueries = [
+    { sortBy: "title" },
+    { sortBy: "amount", order: "up" },
+    { q: ["a", "b"] },
+    { limit: "51" },
+  ];
+  for (const query of badQueries) {
+    assert.throws(() => parseListQuery(query), { status: 400 });
   }
 });

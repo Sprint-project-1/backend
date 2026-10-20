@@ -51,3 +51,43 @@ export function parseLimit(value, defaultLimit, maxLimit) {
   }
   return limit;
 }
+
+export function parseListQuery(query) {
+  const limit = parseLimit(query.limit, 20, 50);
+
+  let q = null;
+  if (query.q !== undefined) {
+    if (typeof query.q !== "string") {
+      throw validationError();
+    }
+    const trimmed = query.q.trim();
+    if (trimmed !== "") {
+      q = trimmed;
+    }
+  }
+
+  let sortBy = null;
+  if (query.sortBy !== undefined) {
+    if (query.sortBy !== "amount" && query.sortBy !== "achievementRate") {
+      throw validationError();
+    }
+    sortBy = query.sortBy;
+  }
+
+  let order = null;
+  if (query.order !== undefined) {
+    if (sortBy === null) {
+      throw validationError();
+    }
+    if (query.order !== "asc" && query.order !== "desc") {
+      throw validationError();
+    }
+    order = query.order;
+  }
+
+  if (sortBy !== null && order === null) {
+    order = "desc";
+  }
+
+  return { limit, q, sortBy, order };
+}
