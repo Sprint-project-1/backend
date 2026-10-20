@@ -1,12 +1,12 @@
 # Git 협업 및 커밋 컨벤션
 
-> 이전 확인한 팀 FE GitHub 저장소는 [Sprint-project-1/cine-fund](https://github.com/Sprint-project-1/cine-fund)이며 `main`에 프런트엔드 scaffold가 있었다. **이번 ZIP은 BE 준비 코드(Express, Prisma, Docker, pnpm)이고 이 코드의 실제 원격 저장소·팀 `main` 병합 여부는 확인하지 않았다.** 코드잇 가이드의 `16기-{Cinefund}-{3팀}-{BE or FE}`는 이름 제안이며 실제 확인된 FE 저장소명은 `cine-fund`다. FE/BE를 계속 분리할지 합칠지 팀 결정에 따른다.
+> 프런트엔드는 [Sprint-project-1/cine-fund](https://github.com/Sprint-project-1/cine-fund), 백엔드는 [Sprint-project-1/backend](https://github.com/Sprint-project-1/backend)에서 별도로 관리한다. 코드잇 가이드의 `16기-{Cinefund}-{3팀}-{BE or FE}`는 저장소 이름 제안이며 실제 저장소명은 각 GitHub 저장소를 기준으로 한다.
 
 커밋 가이드는 [느낌 있는 Commit Message 작성하기](https://nohack.tistory.com/17)의 type/scope/subject, 본문, Issue footer 구성과 작은 목적 단위 커밋 원칙을 참고해 팀용으로 단순화했다. 참고 글의 제목 길이 등 세부 문구는 팀 합의 전 강제 규칙으로 두지 않는다.
 
 ## 브랜치
 
-- 기존 FE 저장소에서 `main` 브랜치를 확인했다. **BE ZIP에서 원격 브랜치나 PR 여부는 판단하지 않는다.** 브랜치 보호/필수 리뷰 규칙은 실제 저장소 설정에서 확인 후 적용한다.
+- 기본 브랜치 `main`이 현재 저장소에 존재한다. 브랜치 보호/필수 리뷰 규칙은 저장소 설정에서 확인 후 적용한다.
 - 기능: `feature/task-12` (또는 `feature/issue-12-short-name` 제안)
 - 버그: `fix/task-12` 또는 `fix/issue-12-short-name`
 - 문서/정비는 `docs/...`, `chore/...` 제안. 브랜치명에 팀 합의 식별자 필요 여부 TBD.
@@ -34,7 +34,7 @@
 ## Issue, PR, 리뷰, 병합
 
 - 작업 전 Issue에 목적, 범위, 완료 조건, 담당자를 적고 PR에서 연결한다.
-- PR에는 변경 요약, 관련 Issue, 검증 결과, 화면 캡처(해당 시), 위험/후속 작업을 기록한다. 특히 이 BE 코드 병합 시 **Prisma migration, 고정 JSON 100편, `pnpm-lock.yaml`, `/health` 구현 여부와 `pnpm test`/`pnpm test:db` 결과를 구분**해 적는다. 미완성은 Draft PR로 공유한다.
+- PR에는 변경 요약, 관련 Issue, 검증 결과, 화면 캡처(해당 시), 위험/후속 작업을 기록한다. 미완성은 Draft PR로 공유한다.
 - Merge 전 최소 1명 Approve를 요구한다. 단, 페어 프로그래밍으로 실시간 함께 작성한 변경은 팀 합의에 따라 리뷰 생략 가능하며 PR에 페어를 기록한다.
 - 리뷰어는 합의된 응답 시간 내 검토한다(시간 TBD). 기능/오류/보안/가독성을 확인하고 질문은 존중하는 표현으로 작성한다.
 - 승인 전 본인 변경을 반영하고 CI/수동 검증 결과를 기록한다. Merge 방식(squash 등)은 TBD이며 저장소 설정 후 통일한다.
