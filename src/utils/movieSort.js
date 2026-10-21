@@ -45,45 +45,55 @@ export function sortByTitle(movies) {
   });
 }
 
+export function compareByAmount(a, b, order) {
+  let result = compareBigInt(a.totalFundedAmount, b.totalFundedAmount);
+  if (order === "desc") {
+    result = -result;
+  }
+  if (result !== 0) {
+    return result;
+  }
+  return compareById(a, b);
+}
+
 export function sortByAmount(movies, order) {
-  return [...movies].sort((a, b) => {
-    let result = compareBigInt(a.totalFundedAmount, b.totalFundedAmount);
-    if (order === "desc") {
-      result = -result; 
-    }
-    if (result !== 0) {
-      return result;
-    }
-    return compareById(a, b);
-  });
+  return [...movies].sort((a, b) => compareByAmount(a, b, order));
 }
 
 function hasRate(movie) {
   return movie.productionBudget !== null && movie.productionBudget > 0n;
 }
 
-export function sortByAchievementRate(movies, order) {
-  const calculable = movies.filter(hasRate);
-  const notCalculable = movies.filter((movie) => !hasRate(movie));
+export function compareByAchievementRate(a, b, order) {
+  const aHasRate = hasRate(a);
+  const bHasRate = hasRate(b);
 
-  calculable.sort((a, b) => {
-    const left = a.totalFundedAmount * b.productionBudget;
-    const right = b.totalFundedAmount * a.productionBudget;
-    let result = compareBigInt(left, right);
-    if (order === "desc") {
-      result = -result;
-    }
-    if (result !== 0) {
-      return result;
-    }
+  if (aHasRate && !bHasRate) {
+    return -1;
+  }
+  if (!aHasRate && bHasRate) {
+    return 1;
+  }
+
+  if (!aHasRate && !bHasRate) {
     return compareById(a, b);
-  });
+  }
 
-  notCalculable.sort(compareById);
-
-  return [...calculable, ...notCalculable];
+  const left = a.totalFundedAmount * b.productionBudget;
+  const right = b.totalFundedAmount * a.productionBudget;
+  let result = compareBigInt(left, right);
+  if (order === "desc") {
+    result = -result;
+  }
+  if (result !== 0) {
+    return result;
+  }
+  return compareById(a, b);
 }
 
+export function sortByAchievementRate(movies, order) {
+  return [...movies].sort((a, b) => compareByAchievementRate(a, b, order));
+}
 export function sortMovies(movies, params, seed) {
   if (params.sortBy === "amount") {
     return sortByAmount(movies, params.order);
