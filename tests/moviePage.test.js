@@ -202,3 +202,36 @@ test("금액 정렬 cursor의 내용이 잘못되면 400", () => {
   const ok = keysetCursor({ movieId: 8, totalFundedAmount: "80", productionBudget: "1000" });
   assert.deepEqual(ids(buildListPage(movies, params, ok).items), [7, 6, 5, 4, 3]);
 });
+
+test("cursor의 offset이 전체 개수 이상이면 400", () => {
+  const movies = makeMovies(20);
+  for (const offset of [20, 100000]) {
+    assert.throws(
+      () => buildListPage(movies, randomParams, makeCursor({ offset: offset })),
+      { status: 400 },
+    );
+  }
+});
+
+test("cursor의 offset이 limit의 배수가 아니면 400", () => {
+  const movies = makeMovies(20);
+  assert.throws(
+    () => buildListPage(movies, randomParams, makeCursor({ offset: 7 })),
+    { status: 400 },
+  );
+});
+
+test("cursor의 seed가 범위를 벗어나거나 모드와 맞지 않으면 400", () => {
+  const movies = makeMovies(20);
+  for (const seed of [-5, 1e300]) {
+    assert.throws(
+      () => buildListPage(movies, randomParams, makeCursor({ seed: seed })),
+      { status: 400 },
+    );
+  }
+
+  // 금액 정렬 모드인데 seed가 있는 cursor
+  const amountParams = { limit: 5, q: null, sortBy: "amount", order: "desc" };
+  const cursor = makeCursor({ seed: 123, sortBy: "amount", order: "desc" });
+  assert.throws(() => buildListPage(movies, amountParams, cursor), { status: 400 });
+});
