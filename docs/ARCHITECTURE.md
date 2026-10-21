@@ -37,7 +37,7 @@ flowchart LR
 3. 영화 메타데이터는 사전 seed/import로 DB에 적재된 값을 사용한다. TMDB에 없는 값은 NULL/기본 표시 정책을 따른다.
 4. API 표준 JSON 반환, React는 로딩/빈/오류/목록 상태를 표시
 
-기본 랜덤 순서가 페이지 요청마다 변하면 누락/중복이 생길 수 있다. 제안은 첫 목록의 순서를 고정하고 cursor와 함께 유지하는 것이며, 쿠키/localStorage를 쓰지 않는 제약 아래 stateless seed 또는 서버 저장 방식 중 팀 결정이 필요하다. 현재 구현은 cursor에 seed를 담는 stateless 방식. 
+기본 랜덤 순서가 페이지 요청마다 변하면 누락/중복이 생길 수 있다. 제안은 첫 목록의 순서를 고정하고 cursor와 함께 유지하는 것이며, 쿠키/localStorage를 쓰지 않는 제약 아래 stateless seed 또는 서버 저장 방식 중 팀 결정이 필요하다. 현재 구현은 cursor에 seed를 담는 stateless 방식. 이제 금액, 달성률 정렬은 seed가 아니라 마지막 영화 값을 담는다. 
 
 ### 익명 펀딩 참여 UI와 등록 흐름 (서버 계약은 제안)
 
