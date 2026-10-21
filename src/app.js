@@ -2,9 +2,11 @@ import express from "express";
 import { notFound } from "./middlewares/notFound.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import movieRoutes from "./routes/movieRoutes.js";
+import { cors } from "./middlewares/cors.js";
 
 const app = express();
 
+app.use(cors);
 app.use(express.json());
 
 // ==========================================
