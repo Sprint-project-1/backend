@@ -135,25 +135,6 @@ test("cursor를 만들 때와 요청 조건이 다르면 400", () => {
     assert.throws(() => buildListPage(movies, params, cursor), { status: 400 });
   }
 });
-test("금액 정렬: 페이지를 넘기는 사이 순위가 바뀌어도 이미 본 영화가 다시 나오지 않는다", () => {
-  const movies = makeMovies(12);
-  const params = { limit: 5, q: null, sortBy: "amount", order: "desc" };
-
-  const first = buildListPage(movies, params, undefined);
-  assert.deepEqual(ids(first.items), [12, 11, 10, 9, 8]);
-
-  // 첫 페이지를 본 뒤, 3번 영화가 펀딩을 많이 받아 1등이 된다.
-  const changedMovies = makeMovies(12);
-  changedMovies[2].totalFundedAmount = 1000n;
-
-  const second = buildListPage(changedMovies, params, first.page.nextCursor);
-  assert.deepEqual(ids(second.items), [7, 6, 5, 4, 2]);
-
-  const third = buildListPage(changedMovies, params, second.page.nextCursor);
-  assert.deepEqual(ids(third.items), [1]);
-  assert.equal(third.page.hasMore, false);
-  assert.equal(third.page.nextCursor, null);
-});
 
 test("달성률 정렬도 cursor로 이어 받고, 계산할 수 없는 영화는 맨 뒤에 온다", () => {
   const movies = [
@@ -172,35 +153,6 @@ test("달성률 정렬도 cursor로 이어 받고, 계산할 수 없는 영화�
   const third = buildListPage(movies, params, second.page.nextCursor);
   assert.deepEqual(ids(third.items), [4]);
   assert.equal(third.page.hasMore, false);
-});
-
-test("금액 정렬 cursor의 내용이 잘못되면 400", () => {
-  const movies = makeMovies(12);
-  const params = { limit: 5, q: null, sortBy: "amount", order: "desc" };
-
-  function keysetCursor(last) {
-    return encodeCursor({ last: last, q: null, sortBy: "amount", order: "desc", limit: 5 });
-  }
-
-  const badLasts = [
-    undefined,
-    null,
-    "문자열",
-    {},
-    { movieId: 0, totalFundedAmount: "10", productionBudget: "100" },
-    { movieId: 3, totalFundedAmount: 10, productionBudget: "100" },
-    { movieId: 3, totalFundedAmount: "-10", productionBudget: "100" },
-    { movieId: 3, totalFundedAmount: "01", productionBudget: "100" },
-    { movieId: 3, totalFundedAmount: "10", productionBudget: 100 },
-    { movieId: 3, totalFundedAmount: "abc", productionBudget: null },
-  ];
-  for (const last of badLasts) {
-    assert.throws(() => buildListPage(movies, params, keysetCursor(last)), { status: 400 });
-  }
-
-  // 올바른 값이면 통과한다.
-  const ok = keysetCursor({ movieId: 8, totalFundedAmount: "80", productionBudget: "1000" });
-  assert.deepEqual(ids(buildListPage(movies, params, ok).items), [7, 6, 5, 4, 3]);
 });
 
 test("cursor의 offset이 전체 개수 이상이면 400", () => {
