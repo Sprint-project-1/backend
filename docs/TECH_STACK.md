@@ -14,7 +14,7 @@
 | 패키지 매니저 | 저장소 적용됨 | pnpm, `pnpm-lock.yaml` 존재 |
 | 린트 | 저장소 적용됨 | ESLint flat config, `pnpm lint`; ESLint React Hooks/Refresh 규칙 포함 |
 | 형식화 | TBD | Prettier는 현재 `package.json`에서 확인되지 않음 |
-| Back-end | 저장소 설정됨 | Node.js (`^22.12.0 || >=24.0.0`), Express 5.3.0; 현재 `GET /health`만 구현 |
+| Back-end | 저장소 설정됨 | Node.js (`^22.12.0 || >=24.0.0`), Express 5.3.0; 현재 `GET /health`, 영화 목록·상세 API 구현 |
 | ORM / DB | 저장소 설정됨 | Prisma 7.10.0 / PostgreSQL 18; schema와 migration 존재 |
 | 패키지 매니저 | 저장소 설정됨 | pnpm 11.26.0 지정, `pnpm-lock.yaml` 존재 |
 | TMDB | seed 준비됨 | 영화 선정 스크립트에서 고정 영화 100편을 선택하고 JSON을 생성; DB seed는 JSON만 사용. 페이지 요청 중 호출하지 않음 |

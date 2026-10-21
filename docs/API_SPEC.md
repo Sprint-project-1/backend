@@ -1,6 +1,6 @@
 # CineFund API 명세
 
-> **상태: 프런트엔드·백엔드 구현 기준 제안, 2026-10-19.** 현재 문서상 서버에서 구현된 경로는 `GET /health`뿐이다. 아래 `/api` 계약은 페이지 담당자 초안을 통합한 구현 기준이다. 실제 결제, 로그인, 회원가입은 포함하지 않는다.
+> **상태: 프런트엔드·백엔드 구현 기준 제안, 2026-10-19.** 2026-10-21 기준 서버에서 구현된 경로는 `GET /health`, `GET /api/movies`, `GET /api/movies/{movieId}`이며 나머지 `/api` 경로는 미구현이다. 아래 `/api` 계약은 페이지 담당자 초안을 통합한 구현 기준이다. 실제 결제, 로그인, 회원가입은 포함하지 않는다.
 
 ## 1. 공통 계약
 
@@ -420,11 +420,11 @@ Funding 원장 생성과 `Movie.totalFundedAmount` 증가는 하나의 DB 트랜
 
 ## 11. 구현 전제 및 완료 체크
 
-이 문서로 착수할 endpoint는 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `POST /api/movies/{movieId}/fundings`, `POST /api/fundings/{fundingId}/cancel`, `PATCH /api/fundings/{fundingId}/comment`, `POST /api/comparisons`다. 홈과 랭킹은 목록 endpoint를 재사용한다. `/health` 외에는 현재 구현 완료로 간주하지 않는다.
+이 문서로 착수할 endpoint는 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `POST /api/movies/{movieId}/fundings`, `POST /api/fundings/{fundingId}/cancel`, `PATCH /api/fundings/{fundingId}/comment`, `POST /api/comparisons`다. 홈과 랭킹은 목록 endpoint를 재사용한다. 구현 상태는 1장의 구현 상태 표를 따르며, 현재 `GET /api/movies`, `GET /api/movies/{movieId}` 외의 `/api` endpoint는 구현 완료로 간주하지 않는다.
 
 - [ ] Prisma 모델/실제 DB와 공통 영화 응답 모델 필드가 일치하는지 확인한다. 필드가 없으면 schema/seed를 먼저 맞춘다.
 - [ ] 누적액의 단일 원천을 정하고 목록·상세·비교·랭킹이 같은 값을 반환하게 한다.
-- [ ] 기본 랜덤 조회의 순서를 cursor 페이지 간 유지한다.
+- [x] 기본 랜덤 조회의 순서를 cursor 페이지 간 유지한다. (seed를 cursor에 담는 방식으로 백엔드 구현, 단위 테스트와 curl 수동 확인 완료. DB를 포함한 자동 통합 테스트는 미완료)
 - [ ] DB 및 영화 seed 100편의 데이터 형식이 정리된 필드와 일치하는지 확인한다.
 - [ ] FE가 목록 페이지당 10개를 요청하고, 검색어/정렬이 바뀔 때 cursor를 초기화한다.
 - [x] FE의 번호형 페이지 UI는 메모리의 페이지별 cursor 캐시로 연결한다. 다음 페이지 cursor를 저장하고, 검색어·정렬·페이지 크기가 바뀌면 현재 페이지와 cursor 캐시를 초기화한다. 방문하지 않은 페이지로 바로 이동하는 기능은 지원하지 않는다.
