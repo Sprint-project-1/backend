@@ -58,7 +58,7 @@
 
 - DB 모델: `Movie`, `Funding`, 마이그레이션 2개 및 `prisma/seed.js` 작성됨. 로컬 PostgreSQL 적용 여부는 별도 실행 검증 필요.
 - `data/movieDetails.json`: 중복 없는 100편 데이터가 있으며, 영화 선정/검증/시드 코드가 준비됨. 실제 DB 적재 완료 여부는 환경별 확인 필요.
-- Express: `src/app.js`, `src/server.js`, `GET /health`, 영화 목록·상세 API(`GET /api/movies`, `GET /api/movies/:movieId`), 공통 오류 응답(`{ error: { code, message } }`)과 요청 값 검증이 구현됨. DB 연결 실패 시 503 처리 구현. 코멘트 조회·수정, 펀딩 생성·취소, 비교 API는 미구현이며, 요청 제한도 미구현. 
+- Express: `src/app.js`, `src/server.js`, `GET /health`, 영화 목록·상세 API(`GET /api/movies`, `GET /api/movies/:movieId`), 공통 오류 응답(`{ error: { code, message } }`)과 요청 값 검증이 구현됨. DB 연결 실패 시 503 처리와, 허용 origin을 환경변수 `CORS_ORIGINS`로 설정하는 CORS 미들웨어도 구현됨(배포 도메인은 TBD). 코멘트 조회·수정, 펀딩 생성·취소, 비교 API는 미구현이며, 요청 제한도 미구현. 
 - 테스트: `pnpm test`(DB 없는 단위 테스트), `pnpm test:db`(실제 DB 연결·100편 검증). 후자는 DB 실행과 시드가 필요하다.
 - API 이름·화폐 단위·배포 정책은 `docs/API_SPEC.md` 등에서 **제안/TBD**로 구분한다. 목표 금액 기준이 없는 상태에서는 달성률 산식을 임의로 만들지 않는다.
 

@@ -54,14 +54,18 @@ pnpm dev                       # ⑨ Express 서버 실행 (기본 3000번 포�
 DATABASE_URL="postgresql://cinefund:cinefund_local@127.0.0.1:5435/cinefund?schema=public"
 TMDB_API_KEY=""
 TMDB_API_TOKEN=""
+CORS_ORIGINS="http://localhost:5173"
 ```
 
 | 설정                                 | 뜻                                         | 일반 팀원에게 필요한가?       |
 | ------------------------------------ | ------------------------------------------ | ----------------------------- |
 | `DATABASE_URL`                       | 내 PC의 Docker PostgreSQL 연결 주소        | **필수** (기본값 그대로 사용) |
 | `TMDB_API_KEY` 또는 `TMDB_API_TOKEN` | TMDB 영화 목록을 **새로 선정할 때만** 사용 | **불필요** (공란 유지)        |
+| `CORS_ORIGINS`                       | 브라우저에서 이 API를 호출할 프런트엔드 주소. 쉼표로 여러 개 가능. 비워 두면 다른 Origin은 허용하지 않음 | 프런트엔드와 연동할 때 필요. 예시는 Vite 기본 포트(`5173`)이며 실제 프런트엔드 주소에 맞춰 수정 |
 
 `5435`는 **내 PC에서 접속할 포트**이고, Docker 내부 PostgreSQL 포트는 `5432`입니다. `compose.yaml`의 사용자 이름·비밀번호·DB 이름과 `.env`가 서로 일치해야 합니다.
+
+`.env`는 서버가 **시작할 때 한 번만** 읽습니다. 값을 바꾼 뒤에는 `pnpm dev`를 껐다가 다시 실행하세요. `pnpm dev`(`node --watch`)는 소스 파일 변경은 자동으로 반영하지만 `.env` 변경은 감지하지 않습니다. 배포 환경의 허용 주소(`CORS_ORIGINS`)는 아직 정해지지 않았습니다(TBD).
 
 **`.env`와 TMDB 실제 키는 GitHub에 올리지 마세요.** `.env.example`만 공유합니다.
 
@@ -97,7 +101,8 @@ cinefund-backend/
 │   ├── errors/
 │   │   └── createError.js        # status·code를 담은 오류 객체 생성
 │   ├── middlewares/
-│   │   ├── errorHandler.js       # 모든 오류를 공통 JSON 형식으로 응답
+│   │   ├── cors.js               # 허용한 프런트엔드 주소에 CORS 헤더 추가
+│   │   ├── errorHandler.js       # 모든 오류를 공통 JSON 형식으로 응답, DB 연결 실패는 503
 │   │   └── notFound.js           # 없는 경로를 404로 처리
 │   ├── movies/
 │   │   ├── movieData.js          # JSON 읽기·검증·선정용 최소 제작비 기준 확인
@@ -120,7 +125,9 @@ cinefund-backend/
 │   ├── validators.test.js        # 요청 값 검증 단위 테스트
 │   ├── movieResponse.test.js     # 응답 변환 단위 테스트
 │   ├── movieSort.test.js         # 정렬 단위 테스트
-│   └── moviePage.test.js         # cursor·페이지네이션 단위 테스트
+│   ├── moviePage.test.js         # cursor·페이지네이션 단위 테스트
+│   ├── errorHandler.test.js      # 오류 응답(400·404·500·503) 단위 테스트
+│   └── cors.test.js              # CORS 헤더·preflight 단위 테스트
 ├── docs/                         # 설계·API 계약·팀 협업 문서
 ├── compose.yaml                  # Docker PostgreSQL 설정
 ├── prisma.config.js              # Prisma 환경설정/마이그레이션 위치
@@ -327,6 +334,7 @@ Prisma의 `BigInt`는 일반 JSON으로 그대로 응답할 수 없어, 현재 `
 | `pnpm db:seed`에서 목록 불일치 | **기존 DB 영화 목록과 JSON이 다름**. 기존 후원 기록 확인 후 담당자와 조율                                                           |
 | `pnpm test`만 성공             | DB 검사까지 완료한 게 아님. `pnpm test:db` 별도로 실행                                                                              |
 | `/api/movies` 요청이 안 됨     | 구현된 API는 `GET /api/movies`, `GET /api/movies/:movieId`뿐(코멘트·펀딩·비교는 미구현). `pnpm dev` 실행, `pnpm db:up`·`pnpm db:seed`로 DB와 영화 100편 적재, 요청 경로 철자를 확인. 응답이 `{ "error": ... }`이면 `code`를 확인 |
+| 브라우저 콘솔에 CORS 오류        | `.env`의 `CORS_ORIGINS`가 프런트엔드 주소(`http://`, 포트까지 정확히)와 같은지 확인하고, 수정했다면 `pnpm dev`를 다시 시작. curl에서는 문제없고 브라우저에서만 생긴다면 대부분 이 설정 |
 
 ## 11. 협업할 때 주의할 점
 

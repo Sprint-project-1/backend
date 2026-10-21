@@ -83,7 +83,7 @@
 | 비교 항목 | 비교 결과 필드 미정 | 공통 항목 후보를 확정하고 누락 정보 표시 정의 | 예 |
 | 데이터 구분 | list/funding DB는 논리 구분 | 한 PostgreSQL 내 Movie와 Funding 테이블 관계 | 아니오, 제공 정보 기준 |
 | 상태 저장 금지 | 비교 선택은 새로고침 시 사라질 수 있음 | URL query로 ID 전달하는 안 제안, 길이/새로고침 UX 검토 | 예 |
-| FE/BE 배포 | 플랫폼 미정, CORS/환경변수 영향 | 독립 정적 FE와 Node API 배포 후보 비교, 동일 도메인/허용 origin 결정 | 예 |
+| FE/BE 배포 | 플랫폼 미정, CORS/환경변수 영향 | 독립 정적 FE와 Node API 배포 후보 비교, 동일 도메인/허용 origin 결정. 허용 origin을 환경변수 `CORS_ORIGINS`로 설정하는 CORS 미들웨어는 구현됨, 배포 주소는 TBD | 예 |
 | 보안/리소스 | 무제한 내부 요청, 초기 TMDB import 호출 실패/과다 요청 위험 | 내부 API 페이지 크기 상한, 서버 검증, 요청 제한 검토; import 재시도·호출 간격·키 보호 | 예 |
 
 ## 미확정 요구사항 결정 체크리스트
@@ -106,7 +106,7 @@
 - [ ] 비교 결과의 AI 요약 시안 포함 여부, 외부 API/비용/데이터 처리 정책
 - [x] 영화 탐색 번호형 페이지 UI는 방문 페이지별 cursor를 메모리에 보관해 연결한다. 검색/정렬/페이지 크기 변경 시 초기화한다. 랭킹은 스크롤 추가 표시를 cursor API에 연결한다.
 - [ ] TMDB seed/import 실패 시 재시도/부분 적재 복구와 갱신 주기/책임
-- [ ] 서버 프레임워크, API prefix/version, 배포 플랫폼 및 도메인/CORS
+- [ ] 서버 프레임워크, API prefix/version, 배포 플랫폼 및 도메인/CORS (CORS는 허용 origin을 `CORS_ORIGINS` 환경변수로 설정하는 장치만 구현, 배포 도메인은 미정)
 - [ ] 현재 scaffold의 `/detail`, `/compare`, `/compare-result` 경로를 기존 기획의 `/{id}`, `/comparison`, `/results`와 어떻게 정렬할지
 - [x] 프런트엔드와 백엔드는 별도 저장소로 관리
 - [ ] pnpm 버전 고정 여부 및 공유 개발환경 실행 방식
