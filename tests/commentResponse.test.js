@@ -26,6 +26,12 @@ test("toCommentResponse: movieId stays a number", () => {
   assert.equal(result.movieId, 1);
 });
 
+test("toCommentResponse: nickname and comment are copied as they are", () => {
+  const result = toCommentResponse(makeFunding());
+  assert.equal(result.nickname, "영화팬");
+  assert.equal(result.comment, "기대돼요");
+});
+
 test("toCommentResponse: createdAt becomes an ISO string", () => {
   const result = toCommentResponse(makeFunding());
   assert.equal(result.createdAt, "2026-10-19T03:00:00.000Z");
