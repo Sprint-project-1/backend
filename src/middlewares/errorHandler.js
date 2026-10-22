@@ -9,6 +9,33 @@ export function errorHandler(err, req, res, next) {
     });
   }
 
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({
+      error: {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "요청 본문이 허용된 크기를 초과했습니다.",
+      },
+    });
+  }
+
+  if (
+    err.type === "charset.unsupported" ||
+    err.type === "encoding.unsupported"
+  ) {
+    return res.status(415).json({
+      error: {
+        code: "UNSUPPORTED_MEDIA_TYPE",
+        message: "요청의 문자 인코딩 또는 압축 형식을 지원하지 않습니다.",
+      },
+    });
+  }
+
+  if (err instanceof URIError && err.status === 400) {
+    return res.status(400).json({
+      error: { code: "VALIDATION_ERROR", message: "요청 값을 확인해 주세요." },
+    });
+  }
+
   if (err.isMyError) {
     return res.status(err.status).json({
       error: { code: err.code, message: err.message },

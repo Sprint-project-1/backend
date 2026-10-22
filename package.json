@@ -8,15 +8,15 @@
     "node": "^22.12.0 || >=24.0.0"
   },
   "scripts": {
-    "db:up": "docker compose up -d --wait",
+    "db:up": "node prisma/start-db.js",
     "db:down": "docker compose down",
-    "db:migrate": "prisma migrate deploy",
-    "db:generate": "prisma generate",
+    "db:migrate": "node prisma/ensure-funding-database.js && prisma migrate deploy --config prisma/funding.config.js && node prisma/migrate-fundings.js && prisma migrate deploy",
+    "db:generate": "prisma generate && prisma generate --config prisma/funding.config.js",
     "movies:select": "node src/movies/selectMovies.js",
     "db:seed": "node prisma/seed.js",
     "test": "node --test tests/*.test.js",
     "test:db": "node src/utils/checkDb.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch-path=src src/server.js"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

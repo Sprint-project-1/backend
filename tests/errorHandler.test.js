@@ -76,3 +76,36 @@ test("깨진 JSON 본문은 400", () => {
   assert.equal(res.statusCode, 400);
   assert.equal(res.body.error.code, "VALIDATION_ERROR");
 });
+
+test("JSON 본문 크기 초과는 413 PAYLOAD_TOO_LARGE", () => {
+  const err = new Error("request entity too large");
+  err.type = "entity.too.large";
+  const res = makeFakeRes();
+  errorHandler(err, {}, res, () => {});
+  assert.equal(res.statusCode, 413);
+  assert.equal(res.body.error.code, "PAYLOAD_TOO_LARGE");
+  assert.equal(
+    res.body.error.message,
+    "요청 본문이 허용된 크기를 초과했습니다.",
+  );
+});
+
+test("잘못된 URL 인코딩은 400 VALIDATION_ERROR", () => {
+  const err = new URIError("URI malformed");
+  err.status = 400;
+  const res = makeFakeRes();
+  errorHandler(err, {}, res, () => {});
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.error.code, "VALIDATION_ERROR");
+});
+
+test("지원하지 않는 JSON 문자셋·압축 방식은 415", () => {
+  for (const type of ["charset.unsupported", "encoding.unsupported"]) {
+    const err = new Error("unsupported request encoding");
+    err.type = type;
+    const res = makeFakeRes();
+    errorHandler(err, {}, res, () => {});
+    assert.equal(res.statusCode, 415);
+    assert.equal(res.body.error.code, "UNSUPPORTED_MEDIA_TYPE");
+  }
+});

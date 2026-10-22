@@ -1,5 +1,5 @@
 import express from "express";
-import { parseMovieIds } from "../utils/validators.js";
+import { parseMovieIds } from "../validators/comparisonValidators.js";
 import { getMoviesForComparison } from "../services/movieService.js";
 
 const router = express.Router();

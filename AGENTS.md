@@ -5,9 +5,9 @@
 ## 프로젝트 맥락
 
 - CineFund는 코드잇 스프린트 16기 3팀의 영화 모의 펀딩 및 비교 서비스다.
-- 현재는 기획 명세와 DB·서버 골격 준비 코드가 함께 있는 단계다. 영화 목록, 상세, 비교, 코멘트 조회 구현 완료. 펀딩 생성,취소와 코멘트 수정 API는 아직 미구현이다. 실제 결제는 프로젝트 범위 밖이며 모의 펀딩이라는 성격을 유지한다.
-- 프런트엔드는 별도로 확인했던 React (JSX), HTML, CSS, JavaScript 기반이다. **이 ZIP 백엔드 폴더**에는 Node.js(패키지 요구 `^22.12.0 || >=24.0.0`), Express 5.3.0(lockfile), Prisma 7.10.0, PostgreSQL 18 및 pnpm 11.26.0 설정이 존재한다. Express에는 `GET /health`와 영화 목록(`GET /api/movies`)·상세(`GET /api/movies/:movieId`)·비교(`POST /api/comparisons`) API가 구현되어 있으며, 코멘트 조회도 구현되었고 펀딩 생성,취소와 코멘트 수정 API는 미구현이다.
-- 이 백엔드의 `compose.yaml`은 Docker 기반 로컬 PostgreSQL 18을 `127.0.0.1:5435`에 연결한다. 팀원별 DB 데이터는 독립적이고 Prisma schema, migration, JSON seed 절차를 공통으로 사용한다. 통합/운영 DB와 배포 방법은 미정이다.
+- 현재는 기획 명세와 DB·서버 코드가 함께 있다. 영화 목록, 상세, 비교, 코멘트 조회 및 모의 펀딩 생성·취소·코멘트 수정 API가 구현되어 있다. 실제 결제는 프로젝트 범위 밖이며 모의 펀딩이라는 성격을 유지한다.
+- 프런트엔드는 별도로 확인했던 React (JSX), HTML, CSS, JavaScript 기반이다. **이 ZIP 백엔드 폴더**에는 Node.js(패키지 요구 `^22.12.0 || >=24.0.0`), Express 5.3.0(lockfile), Prisma 7.10.0, PostgreSQL 18 및 pnpm 11.26.0 설정이 존재한다. Express에는 `GET /health`, 영화 목록·상세·비교·코멘트 조회, 모의 펀딩 생성·취소·코멘트 수정 API가 구현되어 있다.
+- 이 백엔드의 `compose.yaml`은 Docker 기반 로컬 PostgreSQL 18 컨테이너 하나를 `127.0.0.1:5435`에 연결한다. 컨테이너 안에 영화 DB `cinefund`와 펀딩 DB `funding`을 분리해 둔다. 팀원별 DB 데이터는 독립적이고 Prisma schema, migration, JSON seed 절차를 공통으로 사용한다. 통합/운영 DB와 배포 방법은 미정이다.
 - 브라우저는 백엔드 API와 통신한다. 프런트엔드에서 PostgreSQL에 직접 접속하지 않는다.
 - 여기서 백엔드 API는 CineFund 자체의 화면-서버 API다. TMDB 외부 API는 최초 `movies:select`에서 영화 100편을 선정할 때 호출하며, `db:seed`는 고정 JSON만 읽는다. 앱의 사용자 요청마다 TMDB를 호출하지 않는다.
 - 지정 영화 100편, 기본 랜덤 목록, 무한 스크롤, 2~5편 비교가 현재 기획의 중심이다.
@@ -45,20 +45,20 @@
 ## 구현 및 데이터 원칙
 
 - 기존 요구사항을 임의로 삭제하거나 범위를 확장하지 않는다.
-- Prisma는 백엔드 ORM으로만 사용하고 한 PostgreSQL 데이터베이스의 테이블 관계를 우선한다. `list DB`와 `funding DB`를 별도 서버 두 개로 가정하지 않는다.
+- 영화 데이터와 펀딩 원장은 같은 PostgreSQL 인스턴스 안에서도 서로 다른 데이터베이스(`cinefund`, `funding`)에 둔다. Prisma는 각각 별도 schema/client로 연결한다. DB 간 FK는 없으므로 API에서 `movieId` 존재를 확인한다. 컨테이너 수는 이 DB 논리 분리와 별개다.
 - 로컬 개발자는 각자 PostgreSQL 인스턴스를 사용한다. 이는 공통 schema를 각자 적용하는 구조이며, 각자 별도로 스키마를 설계하거나 로컬 DB 데이터를 Git에 공유하는 방식이 아니다. 통합/운영용 공용 DB는 별도 결정한다.
 - API 필드 이름은 `docs/API_SPEC.md`와 `docs/DATABASE_SCHEMA.md`를 기준으로 일관되게 유지한다. 계약 변경 시 FE/BE 문서를 함께 갱신한다.
-- 금액은 부동소수점으로 저장하지 않는다. 영화는 **제작비 최소 25,000 USD**(선정용 고정 환율 1 USD = 1,400 KRW에서 3,500만 원 상당)인 작품 100편만 선정한다. 제작비 0·미상·기준 미달 영화는 선정/시드에서 제외한다. `productionBudget`에는 검증된 TMDB USD 제작비를 그대로 저장하고, `Funding.amount`와 `totalFundedAmount`는 KRW다. 별도 펀딩 목표액 컬럼/환산 로직은 없다. 달성률은 목표 기준이 정해지기 전까지 구현·응답하지 않는다.
+- 금액은 부동소수점으로 저장하지 않는다. 영화는 **제작비 최소 25,000 USD**(선정용 고정 환율 1 USD = 1,400 KRW에서 3,500만 원 상당)인 작품 100편만 선정한다. 제작비 0·미상·기준 미달 영화는 선정/시드에서 제외한다. `productionBudget`에는 검증된 TMDB USD 제작비를 그대로 저장하고, `Funding.amount`와 API의 `totalFundedAmount`는 KRW다. 누적액은 Funding 원장에서 합산하며 Movie DB에 중복 캐시를 저장하지 않는다. 별도 펀딩 목표액 컬럼/환산 로직은 없다. 달성률은 목표 기준이 정해지기 전까지 구현·응답하지 않는다.
 - 페이지네이션은 안정적인 정렬을 고려한다. 랜덤 목록을 요청마다 다시 섞어 중복/누락을 만들지 않는다.
-- 담당자가 `pnpm movies:select`로 TMDB에서 개봉·관람등급·제작비 조건을 확인해 선정한 100편의 **ID와 상세 메타데이터가 한 파일** `data/movieDetails.json`에 담긴다. `pnpm db:seed`는 이 고정 JSON만 읽어 Prisma로 upsert하며 TMDB 키가 필요 없다. 기존 누적 후원액과 후원 기록은 유지하고, 고정 목록 외 영화가 DB에 있으면 자동 삭제하지 않고 중단한다. 이미 JSON이 있으면 재선정 스크립트가 덮어쓰기를 차단한다. 갱신은 팀 합의 후 담당자가 별도로 진행한다.
+- 담당자가 `pnpm movies:select`로 TMDB에서 개봉·관람등급·제작비 조건을 확인해 선정한 100편의 **ID와 상세 메타데이터가 한 파일** `data/movieDetails.json`에 담긴다. `pnpm db:seed`는 이 고정 JSON만 읽어 Movie DB에 upsert하며 TMDB 키가 필요 없다. Funding 원장에는 접근하지 않고, 고정 목록 외 영화가 DB에 있으면 자동 삭제하지 않고 중단한다. 이미 JSON이 있으면 재선정 스크립트가 덮어쓰기를 차단한다. 갱신은 팀 합의 후 담당자가 별도로 진행한다.
 - 외부 API, 라이브러리, 배포 플랫폼의 기능/정책은 확인하기 전 단정하지 않는다. TMDB 키는 **영화 재선정** 환경에서만 서버 비밀정보로 관리하며 프런트엔드에 노출하지 않는다.
 - 입력 검증, DB 무결성, 안전한 오류 응답을 생략하지 않는다. 내부 예외/SQL/비밀정보를 클라이언트에 노출하지 않는다.
 
 ## 현재 구현 상태 (2026-10-21)
 
-- DB 모델: `Movie`, `Funding`, 마이그레이션 2개 및 `prisma/seed.js` 작성됨. 로컬 PostgreSQL 적용 여부는 별도 실행 검증 필요.
+- DB 모델: Movie/Funding이 별도 DB와 Prisma schema/migration으로 분리됨. 기존 DB의 Funding 데이터 이관 및 legacy 테이블 정리 migration이 추가됨. `pnpm db:migrate`가 순서대로 적용한다.
 - `data/movieDetails.json`: 중복 없는 100편 데이터가 있으며, 영화 선정/검증/시드 코드가 준비됨. 실제 DB 적재 완료 여부는 환경별 확인 필요.
-- Express: `src/app.js`, `src/server.js`, `GET /health`, 영화 목록·상세·비교·코멘트 조회 API(`GET /api/movies`, `GET /api/movies/:movieId`, `POST /api/comparisons`, `GET /api/movies/:movieId/comments`), 공통 오류 응답(`{ error: { code, message } }`)과 요청 값 검증이 구현됨. DB 연결 실패 시 503 처리와, 허용 origin을 환경변수 `CORS_ORIGINS`로 설정하는 CORS 미들웨어도 구현됨(배포 도메인은 TBD). 코멘트 수정, 펀딩 생성·취소 API는 미구현이며, 요청 제한도 미구현. 
+- Express: `src/app.js`, `src/server.js`, `GET /health`, 영화 목록·상세·비교·코멘트 조회 API와 펀딩 생성·취소·코멘트 수정 API 구현. 모든 endpoint는 `docs/API_SPEC.md`의 경로·요청·응답 계약을 따른다. 공통 오류 응답(`{ error: { code, message } }`)과 요청 값 검증, DB 연결 실패 503, `CORS_ORIGINS` 허용 목록을 적용한다(배포 도메인은 TBD). 요청 제한은 미구현.
 - 테스트: `pnpm test`(DB 없는 단위 테스트), `pnpm test:db`(실제 DB 연결·100편 검증). 후자는 DB 실행과 시드가 필요하다.
 - API 이름·화폐 단위·배포 정책은 `docs/API_SPEC.md` 등에서 **제안/TBD**로 구분한다. 목표 금액 기준이 없는 상태에서는 달성률 산식을 임의로 만들지 않는다.
 

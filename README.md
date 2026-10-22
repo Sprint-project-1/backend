@@ -1,361 +1,63 @@
-# CineFund Backend — 팀원 실행 가이드
+# CineFund 백엔드 변경 사항
 
-CineFund 백엔드를 **내 PC에서 처음 실행하는 방법**, **다음 작업일부터 실행하는 방법**, **Prisma DB 구조**를 정리한 문서입니다.
+이 문서는 기존 백엔드 구조와 현재 구조의 차이를 설명합니다. 프런트엔드가 사용하는 API 계약은 유지하고, 펀딩 데이터 저장 구조와 서버 구현을 변경했습니다.
 
-> **기준: 2026-10-21 백엔드 코드**  
-> 구현 완료: Docker PostgreSQL 18, Prisma 7.10.0, 영화 100편 JSON(출연 배우 포함), DB 마이그레이션·시드·검증, Express 서버와 `GET /health`, 영화 목록·상세 API(`GET /api/movies`, `GET /api/movies/:movieId`), 영화 비교 API(`POST /api/comparisons`), 영화 코멘트 조회 API(`GET /api/movies/:movieId/comments`). 제목 검색은 `q` 파라미터로, 랭킹용 정렬은 같은 목록 API의 `sortBy=amount` 또는 `sortBy=achievementRate`로 구현되어 있습니다.
-> **아직 미구현:** 코멘트 수정, 펀딩 생성·취소 API. `pnpm dev`로 서버를 실행하면 영화 목록·상세·비교·코멘트 조회 API를 호출할 수 있지만, 프런트엔드 연동은 별도 저장소에서 진행합니다.
+## 변경 요약
 
-## 1. 시작 전 — 버전 확인
+| 구분 | 기존 | 현재 |
+|---|---|---|
+| PostgreSQL | `cinefund` 데이터베이스 하나 | PostgreSQL 컨테이너 하나 안에 `cinefund`와 `funding` 데이터베이스 사용 |
+| 영화 데이터 | `cinefund.movies` | `cinefund.movies`에 유지 |
+| 펀딩 원장 | `cinefund.fundings` | 별도 `funding.fundings`에 저장 |
+| 영화별 누적액 | `movies.total_funded_amount`에 캐시 | 펀딩 원장에서 `movieId`별로 집계 |
+| DB 연결 | Prisma schema/client 하나 | Movie와 Funding 전용 schema/client 각각 사용 |
+| DB 간 관계 | 같은 DB 내 외래 키 사용 가능 | DB 간 외래 키가 없어 API에서 영화 존재를 확인하고 `movieId`로 연결 |
 
-**터미널은 `package.json` 파일이 있는 `cinefund-backend/` 폴더에서 실행합니다.**
+`funding`은 두 번째 데이터베이스의 이름입니다. 별도의 Docker 컨테이너를 추가하지 않고, 현재 로컬 PostgreSQL 컨테이너 안에 논리 DB 두 개를 둡니다.
 
-| 준비물         | 권장/필수 기준                                                 | 확인 명령어        |
-| -------------- | -------------------------------------------------------------- | ------------------ |
-| Node.js        | `22.12.0` 이상인 22.x **또는** 24.x 이상 (`package.json` 기준) | `node -v`          |
-| pnpm           | `11.26.0` (`package.json`에 고정)                              | `pnpm -v`          |
-| Docker Desktop | 설치 후 실행                                                   | `docker --version` |
-| Git / VS Code  | 개발용 권장                                                    | `git --version`    |
+## 데이터와 마이그레이션
 
-pnpm이 없거나 버전이 다르면 아래 명령으로 설치합니다.
+기존 데이터베이스에 펀딩 기록이 있는 환경에서는 `pnpm db:migrate`가 다음 순서로 처리합니다.
 
-```bash
-npm install -g pnpm@11.26.0   # pnpm 설치/버전 맞추기
-pnpm -v                       # 11.26.0 확인
-```
+1. `funding` 데이터베이스가 없으면 생성합니다.
+2. Funding schema migration을 적용합니다.
+3. 기존 `cinefund.fundings`의 기록을 `funding.fundings`로 이관하고 기록 ID를 보존합니다.
+4. 이관 내용과 기존 누적액의 일치를 확인합니다.
+5. Movie DB에서 기존 펀딩 테이블과 누적액 캐시 컬럼을 제거합니다.
 
-## 2. 처음 실행하는 팀원 — 순서대로 따라 하기
-
-**Docker Desktop을 먼저 실행**하세요. 영화 JSON은 이미 준비되어 있으므로 **TMDB 키나 영화 재선정은 필요 없습니다.**
-
-```bash
-pnpm install --frozen-lockfile  # ① 의존성 설치 (pnpm-lock.yaml 기준)
-cp .env.example .env            # ② 환경변수 파일 생성 (Git Bash)
-pnpm db:up                     # ③ Docker에서 PostgreSQL 18 실행 (PC 포트 5435)
-pnpm db:migrate                # ④ movies / fundings 테이블 생성
-pnpm db:generate               # ⑤ Prisma Client 생성
-pnpm db:seed                   # ⑥ 준비된 JSON 영화 100편을 DB에 저장
-pnpm test:db                   # ⑦ 실제 DB 연결 및 영화 정보 검증
-pnpm test                      # ⑧ 영화 선정 규칙 단위 테스트
-pnpm dev                       # ⑨ Express 서버 실행 (기본 3000번 포트)
-```
-
-- **PowerShell**이라면 ②번 명령 대신 `Copy-Item .env.example .env`를 실행하세요.
-- 이미 `.env`가 있다면 덮어쓰지 말고 **3절**의 값이 맞는지 확인하세요.
-- `pnpm db:seed`는 `시딩 완료: 총 100편`, `pnpm test:db`는 `DB 테스트 통과`가 출력되면 정상입니다.
-- `pnpm dev` 실행 후 브라우저에서 **<http://localhost:3000/health>** 를 열어 `{ "message": "서버 정상 작동!" }`이 보이면 Express가 실행된 것입니다. **이 응답만으로 DB 연결이 확인되지는 않습니다.**
-- `pnpm test`는 **DB 없이 가능한 단위 테스트**, `pnpm test:db`는 **실제 DB 검증**입니다.
-
-## 3. 환경변수 `.env`
-
-`.env.example`을 복사하면 아래 설정이 들어갑니다.
+이후 `pnpm db:seed`는 `data/movieDetails.json`으로 Movie DB만 갱신하며 Funding 원장에는 접근하지 않습니다. 로컬 `.env`에는 다음처럼 두 연결 주소를 지정합니다.
 
 ```dotenv
 DATABASE_URL="postgresql://cinefund:cinefund_local@127.0.0.1:5435/cinefund?schema=public"
-TMDB_API_KEY=""
-TMDB_API_TOKEN=""
-CORS_ORIGINS="http://localhost:5173"
+FUNDING_DATABASE_URL="postgresql://cinefund:cinefund_local@127.0.0.1:5435/funding?schema=public"
 ```
 
-| 설정                                 | 뜻                                         | 일반 팀원에게 필요한가?       |
-| ------------------------------------ | ------------------------------------------ | ----------------------------- |
-| `DATABASE_URL`                       | 내 PC의 Docker PostgreSQL 연결 주소        | **필수** (기본값 그대로 사용) |
-| `TMDB_API_KEY` 또는 `TMDB_API_TOKEN` | TMDB 영화 목록을 **새로 선정할 때만** 사용 | **불필요** (공란 유지)        |
-| `CORS_ORIGINS`                       | 브라우저에서 이 API를 호출할 프런트엔드 주소. 쉼표로 여러 개 가능. 비워 두면 다른 Origin은 허용하지 않음 | 프런트엔드와 연동할 때 필요. 예시는 Vite 기본 포트(`5173`)이며 실제 프런트엔드 주소에 맞춰 수정 |
+## API 영향
 
-`5435`는 **내 PC에서 접속할 포트**이고, Docker 내부 PostgreSQL 포트는 `5432`입니다. `compose.yaml`의 사용자 이름·비밀번호·DB 이름과 `.env`가 서로 일치해야 합니다.
+기존 프런트엔드가 사용하는 경로, 요청 형식, 응답 필드와 오류 형식은 변경하지 않았습니다. 영화 목록·상세·비교 응답의 `totalFundedAmount`는 이제 Funding DB의 원장 합계로 만들어 반환합니다. 프런트엔드는 계속 백엔드 API만 호출하고 DB에 직접 연결하지 않습니다.
 
-`.env`는 서버가 **시작할 때 한 번만** 읽습니다. 값을 바꾼 뒤에는 `pnpm dev`를 껐다가 다시 실행하세요. `pnpm dev`(`node --watch`)는 소스 파일 변경은 자동으로 반영하지만 `.env` 변경은 감지하지 않습니다. 배포 환경의 허용 주소(`CORS_ORIGINS`)는 아직 정해지지 않았습니다(TBD).
+모의 펀딩 생성·취소와 코멘트 수정은 기존 API 계약에 맞춰 서버에 구현되어 있으며 실제 결제나 사용자 계정은 추가하지 않았습니다. API 계약의 기준 문서는 [`docs/API_SPEC.md`](docs/API_SPEC.md)입니다.
 
-**`.env`와 TMDB 실제 키는 GitHub에 올리지 마세요.** `.env.example`만 공유합니다.
+## 현재 구성 파일
 
-## 4. 다음 작업일부터 실행하기
+서버 코드는 요청 경계와 데이터 접근을 분리합니다.
 
-처음 한 번 설치·시드가 끝났다면, 이후에는 주로 아래 두 명령만 사용합니다.
+| 디렉터리 | 책임 |
+|---|---|
+| `src/routes/` | HTTP 경로, 요청 파싱, 상태 코드 |
+| `src/validators/` | 영화·펀딩·비교 요청 검증 |
+| `src/services/` | 도메인 흐름과 규칙 |
+| `src/repositories/` | Prisma 쿼리와 트랜잭션 |
+| `src/config/` | DB/서버 설정과 공통 제한값 |
+| `src/utils/` | 응답 직렬화, cursor, 페이지 정렬 |
 
-```bash
-pnpm db:up       # Docker DB 켜기 (이미 실행 중이면 그대로 사용)
-pnpm dev         # 백엔드 개발 서버 시작 (Ctrl + C로 서버 종료)
-```
+- `prisma/schema.prisma`: Movie DB schema
+- `prisma/funding/schema.prisma`: Funding DB schema
+- `prisma/migrations/`: Movie DB migration 이력
+- `prisma/funding/migrations/`: Funding DB migration 이력
+- `prisma/ensure-funding-database.js`: Funding DB 존재 확인 및 생성
+- `prisma/migrate-fundings.js`: 기존 펀딩 원장 이관 및 검증
+- `docker/init/`: 새 PostgreSQL 볼륨 초기화 시 Funding DB 생성
+- `.env.example`: 로컬 Movie/Funding DB 연결 설정 예시
 
-- DB 내용을 보고 싶을 때: `pnpm exec prisma studio`
-- 팀원이 **새 패키지**를 추가했다면: `pnpm install --frozen-lockfile`
-- 팀원이 **새 DB 마이그레이션**을 추가했다면: `pnpm db:migrate` → `pnpm db:generate`
-- 팀에서 **영화 JSON 업데이트에 합의한 경우에만**: `pnpm db:seed` (DB 상태 확인 후)
-- 작업 후 Docker DB 종료: `pnpm db:down` (**DB 데이터 유지**)
-
-> **주의:** `pnpm exec prisma migrate reset` 또는 `docker compose down -v`는 기존 DB 데이터를 삭제할 수 있습니다. 팀원의 영화·후원 기록이 있는 DB에서 임의로 실행하지 마세요.
-
-## 5. 폴더 구조 — 어디를 수정해야 할까?
-
-```text
-cinefund-backend/
-├── data/
-│   └── movieDetails.json         # 배우 정보를 포함한 선정 영화 100편 (기존 데이터)
-├── prisma/
-│   ├── schema.prisma             # Movie / Funding 테이블 설계 ⭐
-│   ├── migrations/               # 초기 생성 및 목표액 컬럼 제거를 포함한 DB 변경 이력
-│   └── seed.js                   # 영화 JSON → PostgreSQL 저장
-├── src/
-│   ├── config/db.js              # Prisma로 DB 연결
-│   ├── errors/
-│   │   └── createError.js        # status·code를 담은 오류 객체 생성
-│   ├── middlewares/
-│   │   ├── cors.js               # 허용한 프런트엔드 주소에 CORS 헤더 추가
-│   │   ├── errorHandler.js       # 모든 오류를 공통 JSON 형식으로 응답, DB 연결 실패는 503
-│   │   └── notFound.js           # 없는 경로를 404로 처리
-│   ├── movies/
-│   │   ├── movieData.js          # JSON 읽기·검증·선정용 최소 제작비 기준 확인
-│   │   ├── selectMovies.js       # TMDB에서 영화 100편 선정 (담당자용)
-│   │   └── tmdb.js               # TMDB API 요청 (담당자용)
-│   ├── routes/
-│   │   ├── comparisonRoutes.js   # POST /api/comparisons
-│   │   └── movieRoutes.js        # GET /api/movies, GET /api/movies/:movieId, GET /api/movies/:movieId/comments
-│   ├── services/
-│   │   ├── commentService.js     # 영화별 코멘트 조회(최신순, cursor)
-│   │   └── movieService.js       # 영화 상세 조회, 목록 페이지 조회, 비교할 영화 조회
-│   ├── utils/
-│   │   ├── checkDb.js            # 실제 DB가 JSON과 일치하는지 검사
-│   │   ├── commentCursor.js      # 코멘트 cursor 생성·검증
-│   │   ├── commentResponse.js    # DB 펀딩 → 코멘트 응답 변환
-│   │   ├── validators.js         # 영화 ID·펀딩 ID·limit·목록 query·비교 요청 본문 검증
-│   │   ├── movieResponse.js      # DB 영화 → API 공통 응답 모델 변환
-│   │   ├── movieSort.js          # 랜덤·제목·금액·달성률 정렬
-│   │   └── moviePage.js          # cursor 생성·검증과 페이지 자르기
-│   ├── app.js                    # Express 설정, /health, /api/movies·/api/comparisons 연결, 오류 처리
-│   └── server.js                 # 서버 실행
-├── tests/
-│   ├── movieData.test.js         # 영화 JSON·선정 기준 단위 테스트
-│   ├── commentCursor.test.js     # 코멘트 cursor 단위 테스트
-│   ├── commentResponse.test.js   # 코멘트 응답 변환 단위 테스트
-│   ├── validators.test.js        # 요청 값 검증 단위 테스트
-│   ├── movieResponse.test.js     # 응답 변환 단위 테스트
-│   ├── movieSort.test.js         # 정렬 단위 테스트
-│   ├── moviePage.test.js         # cursor·페이지네이션 단위 테스트
-│   ├── errorHandler.test.js      # 오류 응답(400·404·500·503) 단위 테스트
-│   └── cors.test.js              # CORS 헤더·preflight 단위 테스트
-├── docs/                         # 설계·API 계약·팀 협업 문서
-├── compose.yaml                  # Docker PostgreSQL 설정
-├── prisma.config.js              # Prisma 환경설정/마이그레이션 위치
-├── .env.example                  # 공유 가능한 환경변수 예시
-├── package.json                  # pnpm 실행 명령어
-├── pnpm-lock.yaml                # 패키지 버전 잠금 파일
-└── README.md                     # 지금 읽는 문서
-```
-
-## 6. Prisma 스키마 쉽게 이해하기
-
-`prisma/schema.prisma`는 **PostgreSQL에 어떤 테이블과 컬럼이 있고, 서로 어떻게 연결되는지** 정하는 파일입니다. 현재는 **테이블 2개**가 있습니다.
-
-| Prisma 모델 | 실제 DB 테이블 | 용도                                                            |
-| ----------- | -------------- | --------------------------------------------------------------- |
-| `Movie`     | `movies`       | 영화 100편, USD 제작비·KRW 누적 후원액 저장                       |
-| `Funding`   | `fundings`     | 어느 영화에 누가 얼마를 후원했는지 기록하는 구조 (API는 미구현) |
-
-### 6-1. `Movie` — 영화 한 편의 정보
-
-| Prisma 필드                          | 쉬운 설명                                       | 예시                           |
-| ------------------------------------ | ----------------------------------------------- | ------------------------------ |
-| `movieId`                            | **우리 DB가 만든 영화 고유번호 (기본키)**       | `1`                            |
-| `tmdbId`                             | **TMDB에서 사용하는 영화 고유번호 (중복 금지)** | `550`                          |
-| `title`, `originalTitle`             | 영화 제목, 원제                                 | `파이트 클럽`, `Fight Club`    |
-| `director`, `actors`, `genres`       | 감독, 배우 이름 배열, 장르 배열                 | `actors: ["배우 A", "배우 B"]` |
-| `overview`, `posterPath`, `tagline`  | 소개, 포스터 경로, 문구                         | `posterPath: "/...jpg"`        |
-| `releaseDate`, `koreanCertification` | 개봉일, 한국 관람등급                           | `2026-01-01`, `12`             |
-| `productionBudget`                   | TMDB 원본 제작비 **USD(달러)**                  | `1000000` = 100만 달러         |
-| `totalFundedAmount`                  | 지금까지 모인 **KRW(원) 후원액**                | 신규 영화는 `0`                |
-| `createdAt`, `updatedAt`             | 생성·수정 시각                                  | 자동 관리                      |
-| `fundings`                           | 이 영화에 연결된 후원 기록 목록                 | 영화 1편 → 후원 여러 건        |
-
-현재 스키마에 **`revenue`(매출), `backdropPath`(배경 이미지)는 없습니다.** 영화 선정 조건에도 매출 하한은 없습니다.
-
-### 6-2. `Funding` — 후원 한 건의 정보
-
-| Prisma 필드              | 쉬운 설명                                          |
-| ------------------------ | -------------------------------------------------- |
-| `fundingId`              | 후원 한 건의 고유번호 (기본키, BigInt)             |
-| `movieId`                | **어떤 영화에 후원했는지** 저장하는 번호 (외래키)  |
-| `nickname`               | 후원자 닉네임, 최대 8자 (`VARCHAR(8)`)             |
-| `amount`                 | 후원한 금액 **KRW(원), BigInt**                    |
-| `comment`                | 후원 코멘트, 최대 100자 (`VARCHAR(100)`)           |
-| `passwordHash`           | 비밀번호 **해시값**을 저장할 컬럼 (원문 저장 금지) |
-| `createdAt`, `updatedAt` | 후원 생성·수정 시각                                |
-| `movie`                  | 연결된 `Movie` 한 편을 조회하는 관계 필드          |
-
-**핵심 관계: 영화 1편에 후원은 여러 건(1:N)입니다.**
-
-```text
-Movie (movies)                  Funding (fundings)
-movie_id | title                funding_id | movie_id | amount
----------|-----------           -----------|----------|-------
-1        | 영화 A               101        | 1        | 10000
-2        | 영화 B               102        | 1        | 20000
-                                 103        | 2        | 5000
-
-fundings.movie_id = movies.movie_id  # Movie 1번 ← Funding 101, 102번
-                                   # Movie 2번 ← Funding 103번
-```
-
-- `Funding.movieId`는 **`Movie.movieId`**를 가리킵니다. **`tmdbId`가 아닙니다.**
-- `onDelete: Restrict` 때문에 후원 기록이 연결된 영화를 함부로 삭제할 수 없습니다.
-- 실제 후원을 등록하는 Express API는 아직 없으므로 **테이블이 있어도 실제 후원 기능이 완성된 상태는 아닙니다.**
-
-### 6-3. Prisma 문법 읽는 법
-
-아래는 현재 스키마의 **일부를 발췌**한 문법 설명입니다.
-
-```prisma
-model Movie {                                                 // Movie 모델 = DB의 movies 테이블
-  movieId           Int      @id @default(autoincrement()) @map("movie_id") // 내부 PK, 자동 번호
-  tmdbId            Int      @unique @map("tmdb_id")          // TMDB ID, 중복 금지
-  actors            String[] @default([])                    // 배우 이름 여러 개, 기본 []
-  productionBudget  BigInt?  @map("production_budget")        // USD 제작비, NULL 허용
-  totalFundedAmount BigInt   @default(0) @map("total_funded_amount") // KRW 누적액, 기본 0
-  fundings          Funding[]                                // 이 영화의 후원 목록 (1:N)
-  @@map("movies")                                               // 실제 DB 테이블명
-}
-
-model Funding {
-  fundingId BigInt @id @default(autoincrement()) @map("funding_id") // 후원 PK
-  movieId   Int    @map("movie_id")                         // Movie.movieId 저장하는 외래키
-  movie     Movie  @relation(fields: [movieId], references: [movieId], onDelete: Restrict)
-  amount    BigInt                                          // 원화 후원액
-  @@map("fundings")                                         // 실제 DB 테이블명
-}
-```
-
-- `@id`: 기본키(PK), `@unique`: 중복 금지, `@default(0)`: 기본값 0
-- `?`: `NULL` 허용, `[]`: 여러 값을 저장하는 배열, `BigInt`: 큰 정수
-- `@map("movie_id")`: **코드 필드 이름(`movieId`)**과 **DB 컬럼 이름(`movie_id`)**을 연결
-- `@@map("movies")`: **코드 모델 이름(`Movie`)**과 **DB 테이블 이름(`movies`)**을 연결
-- `@relation(fields: [movieId], references: [movieId])`: **Funding의 movieId → Movie의 movieId** 연결
-- `@updatedAt`: Prisma로 수정할 때 수정 시각 자동 갱신
-- `@db.Date` / `@db.Timestamptz(3)`: PostgreSQL 날짜/시각 타입 지정
-
-**Prisma 스키마를 고쳤다고 DB가 자동 변경되는 것은 아닙니다.** 담당자가 마이그레이션 파일을 생성·검토해 공유해야 하고, 팀원은 공유된 파일을 `pnpm db:migrate`로 적용합니다. 이 명령은 **기존 마이그레이션 적용**이지 **새 마이그레이션 생성**이 아닙니다. 모델 전체 정의는 [`prisma/schema.prisma`](prisma/schema.prisma)에서 확인하세요.
-
-## 7. 영화 100편 데이터가 DB에 들어가는 흐름
-
-### 7-1. 일반 팀원 (영화 재선정 X)
-
-```text
-data/movieDetails.json (이미 선정된 영화 100편 + 배우)
-         ↓
-src/movies/movieData.js (100편, 중복, 배우, 제작비 규칙 검증)
-         ↓
-prisma/seed.js (DB에 create/update)
-         ↓
-PostgreSQL movies 테이블 (pnpm db:seed)
-         ↓
-src/utils/checkDb.js (pnpm test:db)
-```
-
-**일반 팀원은 `pnpm movies:select`를 실행하지 않습니다.** 제공된 JSON은 실제로 **영화 100편 모두 `actors` 배열을 포함**합니다.
-
-### 7-2. 데이터 선정 기준과 통화
-
-- TMDB **인기순**, 이미 개봉한 작품, `adult=false`, **한국 관람등급 확인 가능** 및 청소년 관람불가(18·19세 등) 제외
-- `tmdbId` **중복 없이 정확히 100편**
-- TMDB 제작비(`budget`) **최소 25,000 USD** = 고정 환율로 **3,500만 원**. `0`·미확인·미달 제외
-- 영화 감독·배우(최대 10명)·장르·포스터·개봉일·설명 등 저장
-- **매출(`revenue`)·배경 이미지(`backdropPath`) 수집/검증 조건 없음**
-
-| 구분        | DB 필드             | 단위    | 규칙                      |
-| ----------- | ------------------- | ------- | ------------------------- |
-| 제작비 원본 | `productionBudget`  | **USD** | TMDB `budget` 그대로 보관 |
-| 누적 후원액 | `totalFundedAmount` | **KRW** | 신규 영화는 0원           |
-| 개별 후원액 | `Funding.amount`    | **KRW** | 향후 후원 API에서 사용    |
-
-**선정용 고정 환율:** 1 USD = 1,400 KRW는 최소 제작비 3,500만 원 상당(25,000 USD) 검증에만 사용합니다. 목표 펀딩액을 DB에 저장하거나 달성률을 계산하지 않습니다.
-
-### 7-3. 영화 관련 JavaScript 파일이 3개인 이유
-
-| 파일              | 역할                                        | 누가 사용하나요?                         |
-| ----------------- | ------------------------------------------- | ---------------------------------------- |
-| `movieData.js`    | 기존 JSON 검증, 영화 선정용 최소 제작비 기준 확인 | **일반 팀원도 필요** (seed/test 시 사용) |
-| `selectMovies.js` | TMDB에서 영화 100편을 새로 선정해 JSON 작성 | **영화 데이터 담당자만**                 |
-| `tmdb.js`         | TMDB API 요청·인증                          | **영화 데이터 담당자만**                 |
-
-**재선정이 꼭 필요할 때만**, 담당자가 TMDB 키를 `.env`에 넣고 아래 명령을 실행합니다.
-
-```bash
-pnpm movies:select --refresh    # 주의: 기존 movieDetails.json 교체, 영화 ID가 달라질 수 있음
-```
-
-`pnpm movies:select`는 **JSON을 새로 만드는 명령**이고 `pnpm db:seed`는 **JSON을 DB에 넣는 명령**입니다. JSON이 이미 있으면 기본 `movies:select`는 중단합니다. `--refresh`는 JSON만 교체하며 DB·후원 기록을 바로 삭제하지는 않지만, **영화 ID가 달라지면 재시드 시 기존 DB와 충돌하여 중단**될 수 있습니다. 팀과 합의한 뒤 진행하세요.
-
-기존 데이터에 재시드할 때는 **영화 메타데이터만 업데이트**하고, `totalFundedAmount`·후원 기록은 유지합니다. 단, **기존 DB에 JSON에 없는 영화가 있으면 삭제 대신 오류로 중단**합니다. 이전 후원 금액이 USD로 저장된 적이 있다면 KRW로 자동 이전하지 않으므로 별도 점검이 필요합니다.
-
-## 8. DB 내용 확인 — Prisma Studio와 조회 예시
-
-Docker DB가 실행 중이고 2절의 초기 설정을 완료한 뒤:
-
-```bash
-pnpm exec prisma studio   # 출력된 로컬 주소를 브라우저에서 열기
-```
-
-- **`Movie`**: `movieId`, `tmdbId`, `title`, `actors`, `productionBudget`, `totalFundedAmount` 등 확인 (영화 100편)
-- **`Funding`**: 후원 기록 확인 (아직 후원 기능을 쓰지 않았다면 0건이어도 정상)
-- Studio 종료는 `Ctrl + C` (Docker DB는 계속 실행)
-
-추후 서비스 코드에서 Prisma로 조회할 때의 **예시**입니다. 아래 함수가 이미 구현되었다는 뜻은 아닙니다.
-
-```js
-import { prisma } from "../config/db.js"; // 예: src/services/movies.js 안에서
-
-const movies = await prisma.movie.findMany(); // 영화 전체 조회
-const movie = await prisma.movie.findUnique({ where: { movieId: 1 } }); // 내부 ID 1번 조회
-const fundings = await prisma.funding.findMany({ where: { movieId: 1 } }); // 영화 1번 후원 조회
-```
-
-Prisma의 `BigInt`는 일반 JSON으로 그대로 응답할 수 없어, 현재 `src/app.js`에서는 **응답할 때만 문자열로 변환**하도록 설정했습니다. 실제 영화·후원 API를 구현할 때 이 점을 참고하세요.
-
-## 9. 자주 쓰는 명령어 모음
-
-| 하고 싶은 일                  | 명령어                           |
-| ----------------------------- | -------------------------------- |
-| 패키지 설치                   | `pnpm install --frozen-lockfile` |
-| PostgreSQL 시작               | `pnpm db:up`                     |
-| PostgreSQL 종료 (데이터 유지) | `pnpm db:down`                   |
-| 팀에서 받은 마이그레이션 적용 | `pnpm db:migrate`                |
-| Prisma Client 생성            | `pnpm db:generate`               |
-| JSON 영화 100편 DB 저장       | `pnpm db:seed`                   |
-| 실제 DB/영화 데이터 검사      | `pnpm test:db`                   |
-| 단위 테스트                   | `pnpm test`                      |
-| Express 개발 서버             | `pnpm dev`                       |
-| DB 웹 화면                    | `pnpm exec prisma studio`        |
-| 영화 JSON 재선정 (담당자만)   | `pnpm movies:select --refresh`   |
-
-## 10. 오류가 날 때 먼저 확인하기
-
-| 증상                           | 확인 방법                                                                                                                           |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm` 명령어가 없음           | `node -v`, `pnpm -v` 확인 후 1절의 설치 명령 실행                                                                                   |
-| `pnpm db:up` 실패              | Docker Desktop 실행 여부, `docker ps -a` 확인                                                                                       |
-| `5435` 포트가 사용 중          | 기존 컨테이너·프로그램 확인. 포트를 바꾼다면 **`compose.yaml` + `.env`를 함께 수정**                                                |
-| `P1000 Authentication failed`  | `.env` DB 아이디/비밀번호와 기존 Docker DB의 실제 계정 확인. **기존 볼륨에 예전 비밀번호가 남아 있을 수 있음**. 무작정 DB 삭제 금지 |
-| `P1001` 등 DB 접속 오류        | `pnpm db:up`, `DATABASE_URL`, 포트 `5435` 확인                                                                                      |
-| Prisma Client를 못 찾음        | `pnpm db:generate` 실행                                                                                                             |
-| `movieDetails.json` 오류       | JSON 존재 여부와 `actors`·제작비·100편 조건 확인                                                                                    |
-| `pnpm db:seed`에서 목록 불일치 | **기존 DB 영화 목록과 JSON이 다름**. 기존 후원 기록 확인 후 담당자와 조율                                                           |
-| `pnpm test`만 성공             | DB 검사까지 완료한 게 아님. `pnpm test:db` 별도로 실행                                                                              |
-| `/api/movies` 요청이 안 됨     | 구현된 API는 `GET /api/movies`, `GET /api/movies/:movieId`, `GET /api/movies/:movieId/comments`, `POST /api/comparisons`뿐(펀딩·코멘트 수정은 미구현). POST 요청은 `Content-Type: application/json` 헤더가 없으면 본문을 읽지 못해 400이 납니다. `pnpm dev` 실행, `pnpm db:up`·`pnpm db:seed`로 DB와 영화 100편 적재, 요청 경로 철자를 확인. 응답이 `{ "error": ... }`이면 `code`를 확인 |
-| 브라우저 콘솔에 CORS 오류        | `.env`의 `CORS_ORIGINS`가 프런트엔드 주소(`http://`, 포트까지 정확히)와 같은지 확인하고, 수정했다면 `pnpm dev`를 다시 시작. curl에서는 문제없고 브라우저에서만 생긴다면 대부분 이 설정 |
-
-## 11. 협업할 때 주의할 점
-
-- `package.json`과 `pnpm-lock.yaml`을 **함께 커밋**합니다. 이 프로젝트에서는 `package-lock.json`을 사용하지 않습니다.
-- `node_modules/`, `.env`, TMDB 비밀키는 커밋하지 않습니다.
-- **팀원마다 Docker DB는 별개**입니다. 같은 영화 JSON을 사용해도 각자의 후원 기록이 자동 공유되지는 않습니다. 공용 DB/API는 추후 별도 구성해야 합니다.
-- 프론트엔드가 PostgreSQL에 직접 연결하지 않고 **React → Express API → Prisma → PostgreSQL** 순서로 사용하도록 구현합니다.
-- 후원 기능을 구현할 때 **`Funding` 추가와 `Movie.totalFundedAmount` 증가를 하나의 DB 트랜잭션**으로 처리하고, 비밀번호는 **평문이 아닌 해시**로 저장해야 합니다. 현재 이 API는 구현 전입니다.
-- 스키마 설계는 [`docs/DATABASE_SCHEMA.md`](docs/DATABASE_SCHEMA.md), API 기획은 [`docs/API_SPEC.md`](docs/API_SPEC.md), 전체 구조는 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)를 참조하세요. **기획 문서의 제안과 실제 구현은 다를 수 있으므로 코드·마이그레이션을 우선 확인**합니다.
-- 이 프로젝트는 CineFund 백엔드 코드입니다. 프론트엔드와는 HTTP API로 연동할 예정이며, 실제 API 연결과 배포 구성은 별도로 확인해야 합니다.
-
----
-
-**핵심만 다시 보기:**
-
-- **처음:** `pnpm install --frozen-lockfile` → `.env` 복사 → `pnpm db:up` → `pnpm db:migrate` → `pnpm db:generate` → `pnpm db:seed` → `pnpm test:db` → `pnpm dev`
-- **평소:** `pnpm db:up` → `pnpm dev` (DB 확인은 `pnpm exec prisma studio`)
-- **영화 재선정은 일반 팀원에게 필요 없음.** 제공된 JSON 100편과 배우 정보로 DB를 만들면 됩니다.
+DB를 올리고 두 schema의 migration 및 Prisma Client를 반영할 때는 `pnpm db:up`, `pnpm db:migrate`, `pnpm db:generate`를 사용합니다. API 경로와 필드 계약을 수정해야 하는 경우에는 프런트엔드와 합의한 뒤 기준 문서도 함께 갱신합니다.

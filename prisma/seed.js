@@ -15,7 +15,7 @@ async function main() {
 
   // readMovieDetails()에서 제작비 3,500만 원 상당 이상인 영화 100편인지 확인합니다.
   // 원본 제작비는 USD로 저장합니다. 영화 선정 시 최소 제작비 환율 기준만 사용합니다.
-  // 기존 누적 후원액·후원 기록은 원화로 간주해 건드리지 않습니다.
+  // Funding 원장은 별도 DB에서 관리하므로 영화 seed는 펀딩 기록을 변경하지 않습니다.
   await prisma.$transaction(
     details.map((movie) => {
       const data = {
@@ -39,9 +39,8 @@ async function main() {
         create: {
           tmdbId: movie.tmdbId,
           ...data,
-          totalFundedAmount: 0n,
         },
-        update: { ...data }, // 기존 누적 펀딩 금액과 후원 기록 유지
+        update: { ...data },
       });
     }),
   );

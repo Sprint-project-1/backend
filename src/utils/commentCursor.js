@@ -1,5 +1,5 @@
 import { createError } from "../errors/createError.js";
-import { parseFundingId } from "./validators.js";
+import { parseFundingId } from "../validators/fundingValidators.js";
 
 function invalidCursor() {
   return createError(400, "VALIDATION_ERROR", "요청 값을 확인해 주세요.");

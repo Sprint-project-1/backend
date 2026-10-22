@@ -1,7 +1,6 @@
 import app from "./app.js";
+import { serverConfig } from "./config/server.js";
 
-const PORT = process.env.PORT || 3000; // 서버 포트
-
-app.listen(PORT, () => {
-  console.log(`서버 실행: http://localhost:${PORT}`);
+app.listen(serverConfig.port, () => {
+  console.log(`서버 실행: http://localhost:${serverConfig.port}`);
 });

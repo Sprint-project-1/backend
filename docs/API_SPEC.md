@@ -60,9 +60,12 @@
 | HTTP 상태 | 코드 | 사용 상황 |
 |---:|---|---|
 | 400 | `VALIDATION_ERROR` | 잘못된 query, path, body 값 |
+| 413 | `PAYLOAD_TOO_LARGE` | 요청 본문 크기가 서버 허용 한도를 초과함 |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` | 요청 본문 문자셋 또는 압축 방식을 지원하지 않음 |
 | 403 | `INVALID_CREDENTIAL` | 펀딩 취소 또는 코멘트 수정 비밀번호 불일치 |
 | 404 | `MOVIE_NOT_FOUND` | 상세/코멘트/펀딩 대상 영화가 없거나 비교 요청의 영화 ID 일부가 없음 |
 | 404 | `FUNDING_NOT_FOUND` | 취소 또는 코멘트 수정 대상 기록이 없음 |
+| 404 | `NOT_FOUND` | 등록되지 않은 API 경로 |
 | 500 | `INTERNAL_ERROR` | 예기치 않은 서버 오류 |
 | 503 | `SERVICE_UNAVAILABLE` | DB 등 필수 의존 서비스를 사용할 수 없음 |
 

@@ -1,0 +1,22 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/@prisma/client/funding-client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Funding {
+  fundingId    BigInt   @id @default(autoincrement()) @map("funding_id")
+  movieId      Int      @map("movie_id")
+  nickname     String   @db.VarChar(8)
+  amount       BigInt
+  comment      String   @db.VarChar(100)
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([movieId, createdAt, fundingId])
+  @@map("fundings")
+}

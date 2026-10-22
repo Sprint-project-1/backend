@@ -1,4 +1,5 @@
 import { createError } from "../errors/createError.js";
+import { RANDOM_CURSOR_SEED_RANGE } from "../config/limits.js";
 import { sortMovies } from "./movieSort.js";
 
 function invalidCursor() {
@@ -6,7 +7,7 @@ function invalidCursor() {
 }
 
 function makeSeed() {
-  return Math.floor(Math.random() * 1000000000);
+  return Math.floor(Math.random() * RANDOM_CURSOR_SEED_RANGE);
 }
 
 export function encodeCursor(data) {
@@ -52,7 +53,11 @@ export function decodeCursor(text, params) {
   // 랜덤 모드에서만 seed가 있고(makeSeed 범위), 그 밖의 모드에서는 seed가 없어야 한다.
   const isRandomMode = params.sortBy === null && params.q === null;
   if (isRandomMode) {
-    if (!Number.isInteger(data.seed) || data.seed < 0 || data.seed >= 1000000000) {
+    if (
+      !Number.isInteger(data.seed) ||
+      data.seed < 0 ||
+      data.seed >= RANDOM_CURSOR_SEED_RANGE
+    ) {
       throw invalidCursor();
     }
   } else if (data.seed !== null) {

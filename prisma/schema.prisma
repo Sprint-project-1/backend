@@ -22,25 +22,8 @@ model Movie {
   koreanCertification String?   @map("korean_certification")  // 한국 관람 등급
   tagline             String?
   productionBudget    BigInt?   @map("production_budget")
-  totalFundedAmount   BigInt    @default(0) @map("total_funded_amount")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  fundings            Funding[]
 
   @@map("movies")
-}
-
-model Funding {
-  fundingId    BigInt   @id @default(autoincrement()) @map("funding_id")
-  movieId      Int      @map("movie_id")
-  nickname     String   @db.VarChar(8)
-  amount       BigInt
-  comment      String   @db.VarChar(100)
-  passwordHash String   @map("password_hash")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  movie        Movie    @relation(fields: [movieId], references: [movieId], onDelete: Restrict)
-
-  @@index([movieId, createdAt, fundingId])
-  @@map("fundings")
 }
