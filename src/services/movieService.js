@@ -31,3 +31,31 @@ export async function listMovies(params,cursorText) {
 
   return { items: items, page: result.page };
 }
+
+function findMovieById(movies, id) {
+  for (let i = 0; i < movies.length; i++) {
+    if (movies[i].movieId === id) {
+      return movies[i];
+    }
+  }
+  return null;
+}
+
+export async function getMoviesForComparison(movieIds) {
+  const foundMovies = await prisma.movie.findMany({
+    where: { movieId: { in: movieIds } },
+  });
+
+  if (foundMovies.length !== movieIds.length) {
+    throw createError(404, "MOVIE_NOT_FOUND", "영화를 찾을 수 없습니다.");
+  }
+
+  const orderedMovies = [];
+  for (let i = 0; i < movieIds.length; i++) {
+    const movie = findMovieById(foundMovies, movieIds[i]);
+    orderedMovies.push(movie);
+  }
+
+  const items = orderedMovies.map((movie) => toMovieResponse(movie));
+  return { items: items };
+}

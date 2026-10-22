@@ -3,6 +3,7 @@ import { notFound } from "./middlewares/notFound.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import movieRoutes from "./routes/movieRoutes.js";
 import { cors } from "./middlewares/cors.js";
+import comparisonRoutes from "./routes/comparisonRoutes.js"
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/api/movies", movieRoutes);
+app.use("/api/comparisons", comparisonRoutes);
 app.use(notFound);
 app.use(errorHandler);
 

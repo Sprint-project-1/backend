@@ -1,6 +1,6 @@
 # CineFund API 명세
 
-> **상태: 프런트엔드·백엔드 구현 기준 제안, 2026-10-19.** 2026-10-21 기준 서버에서 구현된 경로는 `GET /health`, `GET /api/movies`, `GET /api/movies/{movieId}`이며 나머지 `/api` 경로는 미구현이다. 아래 `/api` 계약은 페이지 담당자 초안을 통합한 구현 기준이다. 실제 결제, 로그인, 회원가입은 포함하지 않는다.
+> **상태: 프런트엔드·백엔드 구현 기준 제안, 2026-10-19.** 2026-10-21 기준 서버에서 구현된 경로는 `GET /health`, `GET /api/movies`, `GET /api/movies/{movieId}`, `POST /api/comparisons`, `GET /api/movies/{movieId}/comments`이며 나머지 `/api` 경로는 미구현이다. 아래 `/api` 계약은 페이지 담당자 초안을 통합한 구현 기준이다. 실제 결제, 로그인, 회원가입은 포함하지 않는다.
 
 ## 1. 공통 계약
 
@@ -73,11 +73,11 @@
 | `GET` | `/health` | 구현됨 | 서버 상태 확인 |
 | `GET` | `/api/movies` | 구현됨 | 영화 목록·제목 검색·정렬·페이지네이션 |
 | `GET` | `/api/movies/{movieId}` | 구현됨 | 영화 상세 조회 |
-| `GET` | `/api/movies/{movieId}/comments` | 미구현 | 영화별 코멘트 조회 |
+| `GET` | `/api/movies/{movieId}/comments` | 구현됨 | 영화별 코멘트 조회 |
 | `POST` | `/api/movies/{movieId}/fundings` | 미구현 | 익명 모의 펀딩 생성 |
 | `POST` | `/api/fundings/{fundingId}/cancel` | 미구현 | 비밀번호 검증 후 모의 펀딩 취소 |
 | `PATCH` | `/api/fundings/{fundingId}/comment` | 미구현 | 비밀번호 검증 후 코멘트 수정 |
-| `POST` | `/api/comparisons` | 미구현 | 2~5편 비교 정보 조회 |
+| `POST` | `/api/comparisons` | 구현됨 | 2~5편 비교 정보 조회 |
 
 ## 2. 페이지와 API 연결
 
@@ -248,6 +248,8 @@ GET /api/movies/1/comments?limit=10
 ```
 
 `password`와 `passwordHash`는 응답하지 않는다. 잘못된 `movieId` 형식은 400, 영화가 없으면 404다.
+
+cursor는 마지막으로 응답한 코멘트의 위치(`createdAt`, `fundingId`)와 `movieId`를 담는다. 정렬 기준이 바뀌지 않는 값이라서 새 코멘트가 추가되어도 이미 받은 페이지와 겹치거나 빠지지 않는다. 다른 영화에서 받은 cursor, 형식이 틀린 cursor, `limit`이 1~10 범위를 벗어나거나 숫자가 아닌 요청은 400 `VALIDATION_ERROR`다. 다음 페이지가 없으면 `nextCursor`는 `null`이고 `hasMore`는 `false`다. cursor는 마지막으로 응답한 코멘트의 위치(`createdAt`, `fundingId`)와 `movieId`를 담는다. 새 코멘트가 추가되어도 이미 받은 페이지와 겹치거나 빠지지 않는다. 다른 영화에서 받은 cursor, 형식이 틀린 cursor, `limit`이 1~10 범위를 벗어나는 요청은 400 `VALIDATION_ERROR`다. 다음 페이지가 없으면 `nextCursor`는 `null`이고 `hasMore`는 `false`다.
 
 ## 6. 익명 모의 펀딩 생성
 
@@ -421,7 +423,7 @@ Funding 원장 생성과 `Movie.totalFundedAmount` 증가는 하나의 DB 트랜
 
 ## 11. 구현 전제 및 완료 체크
 
-이 문서로 착수할 endpoint는 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `POST /api/movies/{movieId}/fundings`, `POST /api/fundings/{fundingId}/cancel`, `PATCH /api/fundings/{fundingId}/comment`, `POST /api/comparisons`다. 홈과 랭킹은 목록 endpoint를 재사용한다. 구현 상태는 1장의 구현 상태 표를 따르며, 현재 `GET /api/movies`, `GET /api/movies/{movieId}` 외의 `/api` endpoint는 구현 완료로 간주하지 않는다.
+이 문서로 착수할 endpoint는 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `POST /api/movies/{movieId}/fundings`, `POST /api/fundings/{fundingId}/cancel`, `PATCH /api/fundings/{fundingId}/comment`, `POST /api/comparisons`다. 홈과 랭킹은 목록 endpoint를 재사용한다. 구현 상태는 1장의 구현 상태 표를 따르며, 현재 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `POST /api/comparisons` 외의 `/api` endpoint는 구현 완료로 간주하지 않는다.
 
 - [ ] Prisma 모델/실제 DB와 공통 영화 응답 모델 필드가 일치하는지 확인한다. 필드가 없으면 schema/seed를 먼저 맞춘다.
 - [ ] 누적액의 단일 원천을 정하고 목록·상세·비교·랭킹이 같은 값을 반환하게 한다.

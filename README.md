@@ -3,8 +3,8 @@
 CineFund 백엔드를 **내 PC에서 처음 실행하는 방법**, **다음 작업일부터 실행하는 방법**, **Prisma DB 구조**를 정리한 문서입니다.
 
 > **기준: 2026-10-21 백엔드 코드**  
-> 구현 완료: Docker PostgreSQL 18, Prisma 7.10.0, 영화 100편 JSON(출연 배우 포함), DB 마이그레이션·시드·검증, Express 서버와 `GET /health`, 영화 목록·상세 API(`GET /api/movies`, `GET /api/movies/:movieId`). 제목 검색은 `q` 파라미터로, 랭킹용 정렬은 같은 목록 API의 `sortBy=amount` 또는 `sortBy=achievementRate`로 구현되어 있습니다.
-> **아직 미구현:** 코멘트 조회·수정, 펀딩 생성·취소, 비교 API. `pnpm dev`로 서버를 실행하면 영화 목록·상세 API를 호출할 수 있지만, 프런트엔드 연동은 별도 저장소에서 진행합니다.
+> 구현 완료: Docker PostgreSQL 18, Prisma 7.10.0, 영화 100편 JSON(출연 배우 포함), DB 마이그레이션·시드·검증, Express 서버와 `GET /health`, 영화 목록·상세 API(`GET /api/movies`, `GET /api/movies/:movieId`), 영화 비교 API(`POST /api/comparisons`), 영화 코멘트 조회 API(`GET /api/movies/:movieId/comments`). 제목 검색은 `q` 파라미터로, 랭킹용 정렬은 같은 목록 API의 `sortBy=amount` 또는 `sortBy=achievementRate`로 구현되어 있습니다.
+> **아직 미구현:** 코멘트 수정, 펀딩 생성·취소 API. `pnpm dev`로 서버를 실행하면 영화 목록·상세·비교·코멘트 조회 API를 호출할 수 있지만, 프런트엔드 연동은 별도 저장소에서 진행합니다.
 
 ## 1. 시작 전 — 버전 확인
 
@@ -109,19 +109,25 @@ cinefund-backend/
 │   │   ├── selectMovies.js       # TMDB에서 영화 100편 선정 (담당자용)
 │   │   └── tmdb.js               # TMDB API 요청 (담당자용)
 │   ├── routes/
-│   │   └── movieRoutes.js        # GET /api/movies, GET /api/movies/:movieId
+│   │   ├── comparisonRoutes.js   # POST /api/comparisons
+│   │   └── movieRoutes.js        # GET /api/movies, GET /api/movies/:movieId, GET /api/movies/:movieId/comments
 │   ├── services/
-│   │   └── movieService.js       # 영화 상세 조회, 목록 페이지 조회
+│   │   ├── commentService.js     # 영화별 코멘트 조회(최신순, cursor)
+│   │   └── movieService.js       # 영화 상세 조회, 목록 페이지 조회, 비교할 영화 조회
 │   ├── utils/
 │   │   ├── checkDb.js            # 실제 DB가 JSON과 일치하는지 검사
-│   │   ├── validators.js         # 영화 ID·펀딩 ID·limit·목록 query 검증
+│   │   ├── commentCursor.js      # 코멘트 cursor 생성·검증
+│   │   ├── commentResponse.js    # DB 펀딩 → 코멘트 응답 변환
+│   │   ├── validators.js         # 영화 ID·펀딩 ID·limit·목록 query·비교 요청 본문 검증
 │   │   ├── movieResponse.js      # DB 영화 → API 공통 응답 모델 변환
 │   │   ├── movieSort.js          # 랜덤·제목·금액·달성률 정렬
 │   │   └── moviePage.js          # cursor 생성·검증과 페이지 자르기
-│   ├── app.js                    # Express 설정, /health, /api/movies 연결, 오류 처리
+│   ├── app.js                    # Express 설정, /health, /api/movies·/api/comparisons 연결, 오류 처리
 │   └── server.js                 # 서버 실행
 ├── tests/
 │   ├── movieData.test.js         # 영화 JSON·선정 기준 단위 테스트
+│   ├── commentCursor.test.js     # 코멘트 cursor 단위 테스트
+│   ├── commentResponse.test.js   # 코멘트 응답 변환 단위 테스트
 │   ├── validators.test.js        # 요청 값 검증 단위 테스트
 │   ├── movieResponse.test.js     # 응답 변환 단위 테스트
 │   ├── movieSort.test.js         # 정렬 단위 테스트
@@ -333,7 +339,7 @@ Prisma의 `BigInt`는 일반 JSON으로 그대로 응답할 수 없어, 현재 `
 | `movieDetails.json` 오류       | JSON 존재 여부와 `actors`·제작비·100편 조건 확인                                                                                    |
 | `pnpm db:seed`에서 목록 불일치 | **기존 DB 영화 목록과 JSON이 다름**. 기존 후원 기록 확인 후 담당자와 조율                                                           |
 | `pnpm test`만 성공             | DB 검사까지 완료한 게 아님. `pnpm test:db` 별도로 실행                                                                              |
-| `/api/movies` 요청이 안 됨     | 구현된 API는 `GET /api/movies`, `GET /api/movies/:movieId`뿐(코멘트·펀딩·비교는 미구현). `pnpm dev` 실행, `pnpm db:up`·`pnpm db:seed`로 DB와 영화 100편 적재, 요청 경로 철자를 확인. 응답이 `{ "error": ... }`이면 `code`를 확인 |
+| `/api/movies` 요청이 안 됨     | 구현된 API는 `GET /api/movies`, `GET /api/movies/:movieId`, `GET /api/movies/:movieId/comments`, `POST /api/comparisons`뿐(펀딩·코멘트 수정은 미구현). POST 요청은 `Content-Type: application/json` 헤더가 없으면 본문을 읽지 못해 400이 납니다. `pnpm dev` 실행, `pnpm db:up`·`pnpm db:seed`로 DB와 영화 100편 적재, 요청 경로 철자를 확인. 응답이 `{ "error": ... }`이면 `code`를 확인 |
 | 브라우저 콘솔에 CORS 오류        | `.env`의 `CORS_ORIGINS`가 프런트엔드 주소(`http://`, 포트까지 정확히)와 같은지 확인하고, 수정했다면 `pnpm dev`를 다시 시작. curl에서는 문제없고 브라우저에서만 생긴다면 대부분 이 설정 |
 
 ## 11. 협업할 때 주의할 점
