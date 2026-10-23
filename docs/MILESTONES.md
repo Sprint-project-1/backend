@@ -4,6 +4,7 @@
 
 > 저장소 현황 (2026-10-23 코드 기준): 프런트엔드는 별도 저장소에서 관리한다. 이 백엔드 저장소에는 Express health endpoint, Prisma schema/migration, PostgreSQL Compose, JSON seed 및 영화 조회·비교·랭킹 API가 있다. 모의 펀딩 생성·취소 및 코멘트 수정 API도 코드에 구현되었다. 펀딩 API DB/HTTP 통합 검증과 FE 연동은 미완료다.
 
+
 | 단계 | 시작 | 종료 | 산출물 | 완료 조건 |
 |---|---|---|---|---|
 | M0 기획 및 설계 | TBD | TBD | 요구사항, 결정 기록, API/DB/화면 명세 | 핵심 TBD 담당자와 결론이 기록됨 |

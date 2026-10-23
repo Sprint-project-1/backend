@@ -10,7 +10,6 @@ import fundingRoutes from "./routes/fundingRoutes.js";
 
 const app = express();
 
-app.use(cors);
 app.use(express.json());
 
 // ==========================================
@@ -31,5 +30,6 @@ app.use("/api/comparisons", comparisonRoutes);
 app.use("/api", fundingRoutes);
 app.use(notFound);
 app.use(errorHandler);
+
 
 export default app;

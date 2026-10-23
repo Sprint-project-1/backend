@@ -2,7 +2,7 @@
 
 > 이 저장소의 백엔드 설정은 `package.json`, `pnpm-lock.yaml`, `compose.yaml`, Prisma schema 및 migration을 기준으로 기록했다. 프런트엔드 정보는 별도 저장소에서 확인한 기술 구성이다.
 
-## 프런트엔드 기술 (별도 저장소)
+## 현재 저장소에서 확인된 기술
 
 | 영역 | 확인 상태 | 구성 |
 |---|---|---|
@@ -34,14 +34,15 @@
 | 테스트 | Node.js 내장 `node:test`; DB 없는 단위 테스트와 실제 DB 검증 스크립트 구분 |
 | 린트/형식화 | 현재 백엔드 `package.json`에는 ESLint·Prettier 의존성 및 lint/build 스크립트 없음 |
 
+
 ### 저장소 설정 확인이 필요한 항목
 
-이전 FE 조사에서는 FE의 `package.json`이 `tailwind`를 선언하고 Vite plugin/CSS import는 Tailwind CSS v4 형태였다. 의존성 이름이 의도한 것인지와 설치·빌드 결과는 FE 담당자가 해당 저장소에서 확인해야 한다. 이 백엔드에는 Tailwind 설정이 없다. 참고: [Tailwind 공식 Vite 설치 안내](https://tailwindcss.com/docs/installation/using-vite).
+현재 `package.json`은 Tailwind 의존성 이름으로 `tailwind`를 선언하고, Vite plugin/CSS import는 Tailwind CSS v4 구성 형태다. Tailwind 공식 Vite 설치 안내는 `tailwindcss`와 `@tailwindcss/vite`를 함께 설치하도록 설명하므로, 저장소 담당자가 lockfile과 `pnpm install`, `pnpm build` 결과를 확인해 의존성 이름이 의도한 것인지 점검해야 한다. 이 문서는 원격 `main`을 임의 수정하지 않았다. [Tailwind 공식 Vite 설치 안내](https://tailwindcss.com/docs/installation/using-vite)
 
 ## 개발 환경 및 협업
 
-- 현재 작업 폴더는 CineFund 백엔드 저장소다. 원격 저장소 주소나 팀 `main` 병합 여부는 이 문서 수정에서 확인하지 않았다.
-- 백엔드 실행/검증 스크립트는 [README](../README.md)와 [package.json](../package.json)을 따른다. 아래 실행 표를 참고한다.
+- 저장소: [Sprint-project-1/cine-fund](https://github.com/Sprint-project-1/cine-fund), 기본 브랜치 `main` 확인.
+- 실행/검증 스크립트는 `README.md`와 `package.json` 참조: `pnpm dev`, `pnpm test`, `pnpm test:db`, `pnpm db:up`, `pnpm db:migrate`, `pnpm db:seed`.
 - 프런트엔드는 별도 [cine-fund 저장소](https://github.com/Sprint-project-1/cine-fund)에서 관리한다.
 - PostgreSQL은 팀원별 Docker 로컬 인스턴스를 사용한다. 공통 Prisma schema/migration/seed가 구조를 맞추고 실제 데이터는 각자 로컬에 둔다.
 - GitHub Issue/PR로 작업·리뷰를 관리한다. 프로젝트 보드와 소통 채널(Discord 등)은 팀 합의가 필요하다.
@@ -49,7 +50,7 @@
 
 ## 코드 품질 정책
 
-백엔드는 JavaScript ESM과 현재 디렉터리 구조를 따른다. 현재 백엔드에는 lint 스크립트가 없으며 ESLint·Prettier·Airbnb 규칙이 적용된 것으로 간주하지 않는다. FE에서는 별도 저장소의 ESLint 설정을 따른다. 도구 추가는 팀 합의 후 진행하며 상세 규칙은 [코딩 컨벤션](conventions/CODING_CONVENTION.md)을 참고한다.
+현재 저장소의 ESLint flat config를 기준으로 사용한다. Prettier와 Airbnb 규칙은 현재 설치/적용 사실이 확인되지 않으므로 활성화된 것처럼 문서화하지 않는다. 필요하면 저장소의 현재 ESLint major, flat config, React plugin과의 호환성을 확인해 별도 PR로 합의한다. 기존 CRA 중심 ESLint 설정을 그대로 복사하지 않는다. 상세 규칙은 [코딩 컨벤션](conventions/CODING_CONVENTION.md)을 따른다.
 
 ## 기술 선택의 이유와 리스크
 
@@ -62,24 +63,9 @@
 | React Compiler | 현재 Vite/Babel 설정에서 활성화 | 개발/빌드 성능에 영향 가능; 설정을 바꿀 때 빌드 확인 |
 | ESLint | 현재 코드 검사 스크립트와 flat config가 존재 | 팀 규칙 추가 전 기존 구성 및 ESLint 10 호환 확인 |
 | Node.js + Express + Prisma + PostgreSQL | 조회·비교·모의 펀딩 API와 관계형 데이터/마이그레이션 구현 | 펀딩 트랜잭션 코드가 추가됨; DB/HTTP 통합 검증과 FE 연동은 확인 필요 |
+
 | TMDB seed/import | 지정된 영화 메타데이터를 로컬 DB에 적재해 런타임 의존 감소 | 고정 ID 100개, API 키, 호출 실패/재실행·데이터 라이선스 정책 관리 |
 
 ## 실행 및 배포
 
-현재 백엔드의 실행 명령은 다음과 같다. 처음 설정하는 순서는 [README](../README.md)를 따른다.
-
-| 명령 | 기능 |
-|---|---|
-| `pnpm install --frozen-lockfile` | lockfile 기준 의존성 설치 |
-| `pnpm dev` | `node --watch src/server.js`로 Express 실행 |
-| `pnpm db:up` / `pnpm db:down` | Docker PostgreSQL 시작 / 데이터 유지하며 종료 |
-| `pnpm db:migrate` | 공유된 Prisma migration 적용 |
-| `pnpm db:generate` | Prisma Client 생성 |
-| `pnpm db:seed` | 고정 JSON으로 영화 100편 upsert; TMDB 인증정보 불필요 |
-| `pnpm movies:select` | 담당자용 TMDB 영화 재선정; 기존 JSON 덮어쓰기 차단 |
-| `pnpm test` | `node --test tests/*.test.js`로 DB 없는 단위 테스트 |
-| `pnpm test:db` | 실제 DB 연결 및 영화 100편 데이터 검증; DB 실행·시드 필요 |
-
-테스트 상태: 2026-10-22 이 작업 환경에서 `pnpm` 실행 명령은 인식되지 않아 동일한 Node 명령(`node --test tests/*.test.js`)으로 실행했으며 기존 단위 테스트 73개가 통과했다. 랭킹 전용 자동 테스트는 없으며, 이번 문서 작업에서는 실제 DB/HTTP 연동과 FE 연동을 검증하지 않았다. DB 검증 스크립트가 존재한다는 사실을 검증 완료로 표시하지 않는다.
-
-프런트엔드의 개발/빌드/lint는 별도 FE 저장소에서 실행한다. FE/BE 배포 플랫폼·도메인은 TBD이며, 각 환경의 비밀값은 환경변수로 관리하고 저장소에 올리지 않는다.
+현재 프런트엔드 개발/빌드/lint 명령은 저장소 README의 `pnpm` 명령을 사용한다. 백엔드, DB, seed/import 실행 및 배포 절차는 해당 설정과 구현이 저장소에 추가된 뒤 갱신한다. 각 환경의 비밀값은 환경변수로 관리하고 저장소에 올리지 않는다.
