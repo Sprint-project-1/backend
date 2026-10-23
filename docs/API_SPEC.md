@@ -1,6 +1,6 @@
 # CineFund API 명세
 
-> **상태: 프런트엔드·백엔드 구현 기준 제안, 2026-10-19; 구현 현황 갱신 2026-10-22.** 현재 서버에서 구현된 경로는 `GET /health`, `GET /api/movies`, `GET /api/movies/{movieId}`, `POST /api/comparisons`, `GET /api/movies/{movieId}/comments`, `GET /api/rankings`이며 펀딩 생성·취소와 코멘트 수정 경로는 미구현이다. 아래 `/api` 계약은 페이지 담당자 초안을 통합한 구현 기준이다. 실제 결제, 로그인, 회원가입은 포함하지 않는다.
+> **상태: 프런트엔드·백엔드 구현 기준 제안, 2026-10-19.** 2026-10-21 기준 서버에서 구현된 경로는 `GET /health`, `GET /api/movies`, `GET /api/movies/{movieId}`, `POST /api/comparisons`, `GET /api/movies/{movieId}/comments`이며 나머지 `/api` 경로는 미구현이다. 아래 `/api` 계약은 페이지 담당자 초안을 통합한 구현 기준이다. 실제 결제, 로그인, 회원가입은 포함하지 않는다.
 
 ## 1. 공통 계약
 
@@ -23,7 +23,7 @@
 
 ### 공통 영화 응답 모델
 
-목록, 상세, 비교, 랭킹 응답은 아래 필드명과 타입을 공유한다. 목록 화면이 쓰지 않는 필드도 `null` 가능 필드는 일관성을 위해 포함한다.
+목록, 상세, 비교 응답은 아래 필드명과 타입을 공유한다. 목록 화면이 쓰지 않는 필드도 `null` 가능 필드는 일관성을 위해 포함한다.
 
 | 필드 | 타입 | 설명 |
 |---|---|---|
@@ -74,7 +74,6 @@
 | `GET` | `/api/movies` | 구현됨 | 영화 목록·제목 검색·정렬·페이지네이션 |
 | `GET` | `/api/movies/{movieId}` | 구현됨 | 영화 상세 조회 |
 | `GET` | `/api/movies/{movieId}/comments` | 구현됨 | 영화별 코멘트 조회 |
-| `GET` | `/api/rankings` | 구현됨 | 펀딩액·달성률 정렬 및 seenIds 기반 랭킹 페이지네이션 |
 | `POST` | `/api/movies/{movieId}/fundings` | 미구현 | 익명 모의 펀딩 생성 |
 | `POST` | `/api/fundings/{fundingId}/cancel` | 미구현 | 비밀번호 검증 후 모의 펀딩 취소 |
 | `PATCH` | `/api/fundings/{fundingId}/comment` | 미구현 | 비밀번호 검증 후 코멘트 수정 |
@@ -89,19 +88,19 @@
 | 영화 상세 | `GET /api/movies/{movieId}`; 코멘트 `GET /api/movies/{movieId}/comments`; 모의 펀딩 `POST /api/movies/{movieId}/fundings`; 취소 `POST /api/fundings/{fundingId}/cancel`; 코멘트 수정 `PATCH /api/fundings/{fundingId}/comment` |
 | 비교 선택 | 후보 검색/조회에 `GET /api/movies` 사용; 선택 상태는 프런트엔드에서 관리 |
 | 비교 결과 | `POST /api/comparisons` |
-| 펀딩 랭킹 | `GET /api/rankings?limit=10&sortBy=amount&order=desc` 또는 `order=asc`; 달성률 정렬은 `sortBy=achievementRate` |
+| 펀딩 랭킹 | `GET /api/movies?limit=10&sortBy=amount&order=desc` 또는 `order=asc`; 달성률 정렬은 `sortBy=achievementRate` |
 
 ## 3. 영화 목록 조회
 
 `GET /api/movies`
 
-홈(Top 3 포함), 영화 탐색, 비교 선택 후보가 공유한다. 결과 범위는 DB에 적재된 지정 영화 100편이다. 랭킹 화면은 별도의 `GET /api/rankings`를 사용한다. 목록 API의 금액·달성률 정렬 기능은 유지한다.
+홈, 영화 탐색, 비교 선택 후보, 랭킹이 공유한다. 결과 범위는 DB에 적재된 지정 영화 100편이다.
 
 ### Query parameters
 
 | 이름 | 타입 | 필수 | 규칙 |
 |---|---|---:|---|
-| `limit` | positive integer | 아니요 | 기본 20, 최대 50. 영화 탐색 화면은 `limit=10`, 홈 Top 3는 `limit=3`을 보낸다. |
+| `limit` | positive integer | 아니요 | 기본 20, 최대 50. 영화 탐색/랭킹 화면은 `limit=10`, 홈 Top 3는 `limit=3`을 보낸다. |
 | `cursor` | opaque string | 아니요 | 이전 응답의 `page.nextCursor`를 그대로 전달한다. 첫 페이지에서는 생략한다. |
 | `q` | string | 아니요 | 제목 검색 전용. 앞뒤 공백을 제거하고, 공백만 있으면 검색 조건이 없는 것으로 처리한다. 제목에 검색어가 포함되는지 대소문자 구분 없이 검사한다. 연도·장르·원제는 검색하지 않는다. |
 | `sortBy` | enum | 아니요 | `amount` 또는 `achievementRate`. 생략하고 `q`도 없으면 랜덤 목록, `q`만 있으면 제목 오름차순 결과를 반환한다. |
@@ -161,53 +160,17 @@ GET /api/movies?limit=10&sortBy=achievementRate&order=asc
 
 검색 결과가 없으면 `200`과 빈 `items`, `nextCursor: null`, `hasMore: false`를 반환한다.
 
-### 홈 Top 3
+### 홈 Top 3 및 랭킹
 
-홈 Top 3는 목록 조회의 금액 정렬을 재사용한다.
+별도 endpoint 없이 같은 목록 조회를 재사용한다.
 
 ```http
 GET /api/movies?limit=3&sortBy=amount&order=desc
+GET /api/movies?limit=10&sortBy=amount&order=desc
+GET /api/movies?limit=10&sortBy=amount&order=asc
 ```
 
-Top 3는 누적 펀딩액을 기준으로 하며 동률은 `movieId` 오름차순이다.
-
-### 랭킹 전용 조회
-
-`GET /api/rankings`
-
-랭킹 화면에서 지정 영화 100편을 펀딩액 또는 달성률 순으로 조회한다. 제목 검색은 제공하지 않는다.
-
-| Query | 타입 | 기본값 | 규칙 |
-|---|---|---|---|
-| `limit` | positive integer | `10` | 1~50의 정수 |
-| `sortBy` | enum | `amount` | `amount` 또는 `achievementRate` |
-| `order` | enum | `desc` | `asc` 또는 `desc`; `sortBy`를 생략하면 금액 정렬에 적용 |
-| `cursor` | opaque string | 없음 | 첫 요청에서는 생략하고, 다음 요청에서는 이전 `page.nextCursor`를 그대로 전달 |
-
-```http
-GET /api/rankings?limit=10&sortBy=amount&order=desc
-GET /api/rankings?limit=10&sortBy=achievementRate&order=asc
-GET /api/rankings?limit=10&sortBy=amount&order=desc&cursor=OPAQUE_CURSOR
-```
-
-성공 응답은 목록 조회와 같은 `{ items, page: { nextCursor, hasMore } }` 구조다. `items`의 각 항목은 공통 영화 응답 모델의 14개 필드를 포함한다. 금액은 정수 문자열이며 별도의 순위·목표액·달성률 필드는 반환하지 않는다. 다음 항목이 없으면 `nextCursor: null`, `hasMore: false`다. 영화가 없으면 빈 `items`와 같은 종료 값을 반환한다.
-
-정렬과 cursor 동작은 다음과 같다.
-
-- 금액은 `totalFundedAmount`, 달성률은 `totalFundedAmount / productionBudget × 100` 기준이다. 동률은 `movieId` 오름차순이다. 제작비가 `null` 또는 0이면 달성률 정렬에서 두 방향 모두 맨 뒤에 둔다.
-- 매 요청에서 최신 영화 데이터를 정렬한 뒤, 이미 반환한 영화 ID(`seenIds`)를 제외하고 최대 `limit`개를 반환한다.
-- 다음 항목이 있을 때만 기존 `seenIds`와 이번 페이지의 ID를 합쳐 다음 cursor를 만든다. cursor에는 `version: 1`, `seenIds`, `limit`, `sortBy`, `order`가 담긴다. 클라이언트는 이를 생성·해석하지 않는다.
-- 서버가 발급한 cursor를 순서대로 사용하고 영화 목록이 고정되어 있으면 각 영화는 한 번씩 반환된다. 금액이 바뀌어도 이미 본 영화는 제외하지만 최초 순위를 고정하지 않으므로 여러 페이지를 합친 전체 정렬 순서는 보장하지 않는다.
-- 정렬 기준·방향·페이지 크기를 바꾸거나 최신 전체 순위를 다시 보려면 cursor를 초기화한다. 목록 API와 랭킹 API의 cursor는 서로 호환되지 않는다.
-
-현재 구현은 다음 조건에서 400 `VALIDATION_ERROR`를 반환한다.
-
-- `limit`이 1~50의 정수 문자열이 아니거나 정렬 enum이 허용값과 다름.
-- cursor가 문자열이 아니거나 빈 문자열, 4,096자를 초과하는 값, 유효한 base64url/JSON 객체가 아님.
-- cursor 버전이 1이 아니거나 `limit`, `sortBy`, `order`가 현재 요청과 다름.
-- `seenIds`가 1~100개의 배열이 아니거나, ID가 1~2,147,483,647의 정수가 아니거나, 중복 ID가 있음.
-
-현재 검증 한계: `seenIds` 개수가 `limit`의 배수인지, ID가 현재 DB에 존재하는지, 남은 영화가 있는지는 검사하지 않는다. 모든 영화를 포함하는 조작된 cursor는 400 대신 빈 마지막 페이지를 반환할 수 있다. cursor 서명 검증도 구현되어 있지 않다. 발급 불가능한 cursor를 더 엄격히 거부하는 개선과 랭킹 전용 자동 테스트·DB/HTTP 연동 검증은 남은 작업이다.
+Top 3와 랭킹은 누적 펀딩액을 기준으로 한다. 동률은 `movieId` 오름차순이다. 랭킹 화면의 달성률 정렬은 같은 목록 endpoint에 `sortBy=achievementRate`를 보낸다.
 
 ## 4. 영화 상세 조회
 
@@ -286,7 +249,7 @@ GET /api/movies/1/comments?limit=10
 
 `password`와 `passwordHash`는 응답하지 않는다. 잘못된 `movieId` 형식은 400, 영화가 없으면 404다.
 
-cursor는 마지막으로 응답한 코멘트의 위치(`createdAt`, `fundingId`)와 `movieId`를 담는다. 정렬 기준이 바뀌지 않는 값이라서 새 코멘트가 추가되어도 이미 받은 페이지와 겹치거나 빠지지 않는다. 다른 영화에서 받은 cursor, 형식이 틀린 cursor, `limit`이 1~10 범위를 벗어나거나 숫자가 아닌 요청은 400 `VALIDATION_ERROR`다. 다음 페이지가 없으면 `nextCursor`는 `null`이고 `hasMore`는 `false`다.
+cursor는 마지막으로 응답한 코멘트의 위치(`createdAt`, `fundingId`)와 `movieId`를 담는다. 정렬 기준이 바뀌지 않는 값이라서 새 코멘트가 추가되어도 이미 받은 페이지와 겹치거나 빠지지 않는다. 다른 영화에서 받은 cursor, 형식이 틀린 cursor, `limit`이 1~10 범위를 벗어나거나 숫자가 아닌 요청은 400 `VALIDATION_ERROR`다. 다음 페이지가 없으면 `nextCursor`는 `null`이고 `hasMore`는 `false`다. cursor는 마지막으로 응답한 코멘트의 위치(`createdAt`, `fundingId`)와 `movieId`를 담는다. 새 코멘트가 추가되어도 이미 받은 페이지와 겹치거나 빠지지 않는다. 다른 영화에서 받은 cursor, 형식이 틀린 cursor, `limit`이 1~10 범위를 벗어나는 요청은 400 `VALIDATION_ERROR`다. 다음 페이지가 없으면 `nextCursor`는 `null`이고 `hasMore`는 `false`다.
 
 ## 6. 익명 모의 펀딩 생성
 
@@ -460,7 +423,7 @@ Funding 원장 생성과 `Movie.totalFundedAmount` 증가는 하나의 DB 트랜
 
 ## 11. 구현 전제 및 완료 체크
 
-이 문서의 endpoint는 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `GET /api/rankings`, `POST /api/movies/{movieId}/fundings`, `POST /api/fundings/{fundingId}/cancel`, `PATCH /api/fundings/{fundingId}/comment`, `POST /api/comparisons`다. 홈 Top 3는 목록 endpoint를 재사용하고 랭킹 화면은 전용 endpoint를 사용한다. 구현 상태는 1장의 표를 따른다. 영화 목록·상세·코멘트 조회·랭킹 전용 조회·비교는 구현되어 있으며, 펀딩 생성·취소 및 코멘트 수정은 미구현이다. 구현된 코드의 존재가 DB/HTTP 통합 검증이나 FE 연동 완료를 뜻하지는 않는다.
+이 문서로 착수할 endpoint는 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `POST /api/movies/{movieId}/fundings`, `POST /api/fundings/{fundingId}/cancel`, `PATCH /api/fundings/{fundingId}/comment`, `POST /api/comparisons`다. 홈과 랭킹은 목록 endpoint를 재사용한다. 구현 상태는 1장의 구현 상태 표를 따르며, 현재 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `POST /api/comparisons` 외의 `/api` endpoint는 구현 완료로 간주하지 않는다.
 
 - [ ] Prisma 모델/실제 DB와 공통 영화 응답 모델 필드가 일치하는지 확인한다. 필드가 없으면 schema/seed를 먼저 맞춘다.
 - [ ] 누적액의 단일 원천을 정하고 목록·상세·비교·랭킹이 같은 값을 반환하게 한다.
