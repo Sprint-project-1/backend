@@ -77,3 +77,4 @@ Funding에는 `(movieId, createdAt, fundingId)` 인덱스가 있다. 실제 필�
 
 - 팀원별 Docker PostgreSQL은 독립 데이터베이스이며, 공통 기준은 Prisma schema와 migration이다. 로컬 데이터/볼륨과 `.env`는 Git에 올리지 않는다.
 - migration이 데이터베이스 구조의 이력이다. schema를 직접 바꾸고 migration 없이 공유하지 않는다. 공용 통합/운영 DB는 별도 결정 사항이다.
+- 새 migration을 만들거나 수정할 때는 `pnpm db:migrations:check`를 실행한다. 신규 migration의 `DROP`, `TRUNCATE`, `DELETE FROM`은 검사에서 차단한다. 이미 적용된 `funding_goal` 제거 migration은 이력 보존을 위해 해시로 고정하며 파일을 수정하지 않는다.
