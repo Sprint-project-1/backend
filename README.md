@@ -2,9 +2,23 @@
 
 CineFund 백엔드를 **내 PC에서 처음 실행하는 방법**, **다음 작업일부터 실행하는 방법**, **Prisma DB 구조**를 정리한 문서입니다.
 
-> **기준: 2026-10-19 백엔드 코드**  
-> 구현 완료: Docker PostgreSQL 18, Prisma 7.10.0, 영화 100편 JSON(출연 배우 포함), DB 마이그레이션·시드·검증, Express 서버와 `GET /health`.  
-> **아직 미구현:** 영화 목록·상세·검색·랭킹·후원 관련 Express API. `pnpm dev`만으로 프론트엔드에서 영화 API를 호출할 수 있는 것은 아닙니다.
+> **기준: 2026-10-23 백엔드 코드**
+> 구현 완료: Docker PostgreSQL 18, Prisma 7.10.0, 영화 100편 JSON, DB 마이그레이션·시드·검증, Express 서버의 조회·비교·랭킹 API와 모의 펀딩 생성·취소·코멘트 수정 API. 펀딩 생성/취소는 원장과 영화 누적액을 DB 트랜잭션으로 갱신하며 비밀번호는 scrypt 단방향 해시로 저장합니다.
+> **검증 상태:** 펀딩 API의 DB/HTTP 통합 검증과 프런트엔드 연동은 아직 확인하지 않았습니다. 코드 구현 완료가 화면 연동 완료를 뜻하지는 않습니다.
+
+### 랭킹 API 사용 방법
+
+```http
+GET /api/rankings?limit=10&sortBy=amount&order=desc
+GET /api/rankings?limit=10&sortBy=achievementRate&order=asc
+```
+
+`limit`은 기본 10, 최대 50이며, `sortBy`는 기본 `amount`, `order`는 기본 `desc`입니다. 응답은 공통 영화 모델의 `items`와 `page.nextCursor`, `page.hasMore`를 포함합니다.
+
+첫 요청에는 `cursor`를 생략하고, 다음 요청에는 같은 `limit`, `sortBy`, `order`와 이전 응답의 `page.nextCursor`를 그대로 전달합니다. URL에 넣을 때는 query 값으로 인코딩합니다. `hasMore: false`, `nextCursor: null`이면 조회를 끝내고, 정렬 조건이나 페이지 크기를 바꾸면 cursor를 초기화합니다.
+
+랭킹 cursor는 이미 반환한 영화 ID(`seenIds`)를 누적합니다. 매 요청에서 최신 데이터로 정렬한 뒤 이미 본 영화를 제외하므로, 금액이 변해도 이미 조회한 영화가 다시 나오지 않습니다. 최초 순위를 고정하지 않으므로 여러 페이지를 합친 전체 정렬 순서는 보장하지 않습니다. 홈 Top 3는 기존 `GET /api/movies?limit=3&sortBy=amount&order=desc`를 사용합니다. 상세 계약과 현재 검증 한계는 [API 명세](docs/API_SPEC.md#랭킹-전용-조회)를 참고하세요.
+
 
 ## 1. 시작 전 — 버전 확인
 
@@ -118,7 +132,7 @@ cinefund-backend/
 | Prisma 모델 | 실제 DB 테이블 | 용도                                                            |
 | ----------- | -------------- | --------------------------------------------------------------- |
 | `Movie`     | `movies`       | 영화 100편, USD 제작비·KRW 누적 후원액 저장                       |
-| `Funding`   | `fundings`     | 어느 영화에 누가 얼마를 후원했는지 기록하는 구조 (API는 미구현) |
+| `Funding`   | `fundings`     | 모의 펀딩 원장. 생성·취소·코멘트 수정 API에서 사용 |
 
 ### 6-1. `Movie` — 영화 한 편의 정보
 
