@@ -1,6 +1,6 @@
 # CineFund 프로젝트 개발 명세
 
-> 기준: 기존 기획안 최종 수정 2026-10-08 및 2026-10-20 저장소 문서 동기화. 프런트엔드는 별도 저장소이며, 이 백엔드 저장소에는 DB·seed·서버 골격이 준비되어 있다. 영화 목록, 상세, 비교는 구현 완료, 나머지는 구현 전이다.
+> 기준: 기존 기획안 최종 수정 2026-10-08 및 2026-10-20 저장소 문서 동기화. 프런트엔드는 별도 저장소이며, 이 백엔드 저장소에는 DB·seed·서버 골격이 준비되어 있다. 영화 목록, 상세는 구현 완료, 나머지는 구현 전이다.
 
 ## 배경 및 가치
 
@@ -48,7 +48,7 @@
 
 ## 제약 및 외부 의존성
 
-프런트엔드는 별도 `cine-fund` 저장소에서 React/JSX, Vite, React Router, Tailwind CSS, React Compiler, ESLint, pnpm을 사용한다. 이 백엔드 저장소에는 Node.js, Express, Prisma, PostgreSQL 설정과 seed 골격이 있으며, `GET /health` 와 영화 목록, 상세, 비교 API가 구현되어 있고, 코멘트, 펀딩 API는 아직 구현되지 않았다. TMDB는 고정 영화 100편을 선정해 JSON으로 저장하는 단계에 쓰며, DB seed와 앱 요청은 이 JSON/DB를 사용한다. API 키와 초기 적재 실패/갱신 절차를 관리한다. 목표액 표시 규칙은 TMDB 제작비 숫자를 환율 변환 없이 동일한 숫자의 KRW로 사용하는 것이다.
+프런트엔드는 별도 `cine-fund` 저장소에서 React/JSX, Vite, React Router, Tailwind CSS, React Compiler, ESLint, pnpm을 사용한다. 이 백엔드 저장소에는 Node.js, Express, Prisma, PostgreSQL 설정과 seed 골격이 있으며, `GET /health` 외 서비스 API는 아직 구현되지 않았다. TMDB는 고정 영화 100편을 선정해 JSON으로 저장하는 단계에 쓰며, DB seed와 앱 요청은 이 JSON/DB를 사용한다. API 키와 초기 적재 실패/갱신 절차를 관리한다. 목표액 표시 규칙은 TMDB 제작비 숫자를 환율 변환 없이 동일한 숫자의 KRW로 사용하는 것이다.
 
 ## 확장 계획
 
@@ -65,7 +65,7 @@
 
 ## 기술 쟁점 분석
 
-저장소 상태 확인: 프런트엔드 scaffold와 백엔드 DB·서버 골격은 서로 다른 저장소에서 관리한다. 백엔드 저장소에는 Prisma schema/migration, PostgreSQL Compose, TMDB 영화 선정/JSON seed가 있고, 영화 목록·상세·비교 API가 구현되어 있다. 코멘트·펀딩 API는 아직 없다. 세부 실행 명령은 [TECH_STACK](TECH_STACK.md), 화면 경로는 프런트엔드 저장소의 [PAGE_SPEC](PAGE_SPEC.md)을 기준으로 한다.
+저장소 상태 확인: 프런트엔드 scaffold와 백엔드 DB·서버 골격은 서로 다른 저장소에서 관리한다. 백엔드 저장소에는 Prisma schema/migration, PostgreSQL Compose, TMDB 영화 선정/JSON seed가 있으나 영화·비교·펀딩 API는 아직 없다. 세부 실행 명령은 [TECH_STACK](TECH_STACK.md), 화면 경로는 프런트엔드 저장소의 [PAGE_SPEC](PAGE_SPEC.md)을 기준으로 한다.
 
 | 항목 | 현재 상태 / 문제 및 영향 | 권장 해결책 | 합의 |
 |---|---|---|---|

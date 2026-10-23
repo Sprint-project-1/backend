@@ -5,8 +5,8 @@
 ## 프로젝트 맥락
 
 - CineFund는 코드잇 스프린트 16기 3팀의 영화 모의 펀딩 및 비교 서비스다.
-- 현재는 기획 명세와 DB·서버 골격 준비 코드가 함께 있는 단계다. 영화 목록, 상세, 비교, 코멘트 조회 구현 완료. 펀딩 생성,취소와 코멘트 수정 API는 아직 미구현이다. 실제 결제는 프로젝트 범위 밖이며 모의 펀딩이라는 성격을 유지한다.
-- 프런트엔드는 별도로 확인했던 React (JSX), HTML, CSS, JavaScript 기반이다. **이 ZIP 백엔드 폴더**에는 Node.js(패키지 요구 `^22.12.0 || >=24.0.0`), Express 5.3.0(lockfile), Prisma 7.10.0, PostgreSQL 18 및 pnpm 11.26.0 설정이 존재한다. Express에는 `GET /health`와 영화 목록(`GET /api/movies`)·상세(`GET /api/movies/:movieId`)·비교(`POST /api/comparisons`) API가 구현되어 있으며, 코멘트 조회도 구현되었고 펀딩 생성,취소와 코멘트 수정 API는 미구현이다.
+- 현재는 기획 명세와 DB·서버 골격 준비 코드가 함께 있는 단계다. 영화 목록과 상세 구현 완료. 펀딩, 코멘트, 비교 서비스 API는 아직 미구현이다. 실제 결제는 프로젝트 범위 밖이며 모의 펀딩이라는 성격을 유지한다.
+- 프런트엔드는 별도로 확인했던 React (JSX), HTML, CSS, JavaScript 기반이다. **이 ZIP 백엔드 폴더**에는 Node.js(패키지 요구 `^22.12.0 || >=24.0.0`), Express 5.3.0(lockfile), Prisma 7.10.0, PostgreSQL 18 및 pnpm 11.26.0 설정이 존재한다. Express에는 `GET /health`와 영화 목록(`GET /api/movies`)·상세(`GET /api/movies/:movieId`) API가 구현되어 있으며, 코멘트·펀딩·비교 서비스 API는 미구현이다.
 - 이 백엔드의 `compose.yaml`은 Docker 기반 로컬 PostgreSQL 18을 `127.0.0.1:5435`에 연결한다. 팀원별 DB 데이터는 독립적이고 Prisma schema, migration, JSON seed 절차를 공통으로 사용한다. 통합/운영 DB와 배포 방법은 미정이다.
 - 브라우저는 백엔드 API와 통신한다. 프런트엔드에서 PostgreSQL에 직접 접속하지 않는다.
 - 여기서 백엔드 API는 CineFund 자체의 화면-서버 API다. TMDB 외부 API는 최초 `movies:select`에서 영화 100편을 선정할 때 호출하며, `db:seed`는 고정 JSON만 읽는다. 앱의 사용자 요청마다 TMDB를 호출하지 않는다.
@@ -58,7 +58,7 @@
 
 - DB 모델: `Movie`, `Funding`, 마이그레이션 2개 및 `prisma/seed.js` 작성됨. 로컬 PostgreSQL 적용 여부는 별도 실행 검증 필요.
 - `data/movieDetails.json`: 중복 없는 100편 데이터가 있으며, 영화 선정/검증/시드 코드가 준비됨. 실제 DB 적재 완료 여부는 환경별 확인 필요.
-- Express: `src/app.js`, `src/server.js`, `GET /health`, 영화 목록·상세·비교·코멘트 조회 API(`GET /api/movies`, `GET /api/movies/:movieId`, `POST /api/comparisons`, `GET /api/movies/:movieId/comments`), 공통 오류 응답(`{ error: { code, message } }`)과 요청 값 검증이 구현됨. DB 연결 실패 시 503 처리와, 허용 origin을 환경변수 `CORS_ORIGINS`로 설정하는 CORS 미들웨어도 구현됨(배포 도메인은 TBD). 코멘트 수정, 펀딩 생성·취소 API는 미구현이며, 요청 제한도 미구현. 
+- Express: `src/app.js`, `src/server.js`, `GET /health`, 영화 목록·상세 API(`GET /api/movies`, `GET /api/movies/:movieId`), 공통 오류 응답(`{ error: { code, message } }`)과 요청 값 검증이 구현됨. DB 연결 실패 시 503 처리와, 허용 origin을 환경변수 `CORS_ORIGINS`로 설정하는 CORS 미들웨어도 구현됨(배포 도메인은 TBD). 코멘트 조회·수정, 펀딩 생성·취소, 비교 API는 미구현이며, 요청 제한도 미구현. 
 - 테스트: `pnpm test`(DB 없는 단위 테스트), `pnpm test:db`(실제 DB 연결·100편 검증). 후자는 DB 실행과 시드가 필요하다.
 - API 이름·화폐 단위·배포 정책은 `docs/API_SPEC.md` 등에서 **제안/TBD**로 구분한다. 목표 금액 기준이 없는 상태에서는 달성률 산식을 임의로 만들지 않는다.
 

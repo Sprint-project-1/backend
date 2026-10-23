@@ -2,7 +2,7 @@
 
 > 구조와 구현 상태를 함께 기록한다. Figma에는 회원가입/로그인 화면은 없지만 상세 화면에 비로그인 펀딩 입력 및 코멘트 수정 UI가 있다. 화면 설계와 등록 API/DB 동작 결정은 별개다. 팀원별 Docker 환경의 PostgreSQL과 공통 schema/migration/seed를 사용한다. 운영 DB 구성은 미정이다.
 
-> 이 저장소에는 Node.js/Express 서버, Prisma schema와 migration, PostgreSQL Compose 및 영화 JSON seed 골격이 있다. 현재 구현된 HTTP 경로는 `GET /health`, `GET /api/movies`, `GET /api/movies/{movieId}`,  `POST /api/comparisons`, `GET /api/movies/{movieId}/comments`이며 펀딩 생성·취소와 코멘트 수정 API는 미구현이다. 프런트엔드는 별도 `cine-fund` 저장소에서 관리한다.
+> 이 저장소에는 Node.js/Express 서버, Prisma schema와 migration, PostgreSQL Compose 및 영화 JSON seed 골격이 있다. 현재 구현된 HTTP 경로는 `GET /health`, `GET /api/movies`, `GET /api/movies/{movieId}`이며 코멘트·펀딩·비교 서비스 API는 미구현이다. 프런트엔드는 별도 `cine-fund` 저장소에서 관리한다.
 
 ## 구성도
 
@@ -21,7 +21,7 @@ flowchart LR
 ## 경계와 데이터 흐름
 
 - React는 화면과 사용자 입력을 담당하며 API를 통해 서버와 통신한다. 브라우저에서 PostgreSQL에 직접 접속하지 않는다.
-- Node 서버는 화면의 조회 API, 입력 검증, 도메인 규칙, 오류 변환을 담당하도록 설계한다. 현재는 `GET /health`와 영화 목록·상세·비교·코멘트 조회 API가 구현되어 있다. 초기 영화 선정은 별도 스크립트가 TMDB를 호출하고, DB seed는 고정 JSON을 읽는다.
+- Node 서버는 화면의 조회 API, 입력 검증, 도메인 규칙, 오류 변환을 담당하도록 설계한다. 현재는 `GET /health`와 영화 목록·상세 조회 API가 구현되어 있다. 초기 영화 선정은 별도 스크립트가 TMDB를 호출하고, DB seed는 고정 JSON을 읽는다.
 - Prisma는 백엔드에서 PostgreSQL 조회/수정 및 트랜잭션을 수행하는 ORM이다. list/funding은 논리적 데이터 영역이며 두 DB를 뜻하지 않는다.
 - PostgreSQL은 핵심 영화 데이터와 모의 펀딩 기록 관계를 보관하는 구조를 목표로 한다. 구체 테이블/집계 방식은 별도 DB/API 합의 사항이다.
 - TMDB API 키는 Node.js seed/import 실행 환경의 비밀 변수로 보관한다. PostgreSQL 자체가 TMDB를 호출하는 것이 아니라 import 스크립트가 TMDB 응답을 받아 Prisma로 저장한다. 지정 100편 메타데이터는 DB에서 제공하며 앱 화면 요청 때 TMDB를 실시간 호출하지 않는다. 갱신 시점/책임은 TBD다.
@@ -37,10 +37,7 @@ flowchart LR
 3. 영화 메타데이터는 사전 seed/import로 DB에 적재된 값을 사용한다. TMDB에 없는 값은 NULL/기본 표시 정책을 따른다.
 4. API 표준 JSON 반환, React는 로딩/빈/오류/목록 상태를 표시
 
-기본 랜덤 순서가 페이지 요청마다 변하면 누락/중복이 생길 수 있다. 제안은 첫 목록의 순서를 고정하고 cursor와 함께 유지하는 것이며, 쿠키/localStorage를 쓰지 않는 제약 아래 stateless seed 또는 서버 저장 방식 중 팀 결정이 필요하다. 현재 구현은 서버에 상태를 저장하지 않는 방식이며, cursor에 랜덤 정렬은 seed와 offset(다음 시작 위치)을, 제목 검색과 금액·달성률 정렬은 offset을 담는다. 이 방식 채택은 팀 확정 전이다. 한계로, 금액·달성률 정렬은 페이지를 넘기는 중 순위가 바뀌면(예: 새 펀딩) 이미 본 영화가 다시 나오거나 아직 안 본 영화가 빠질 수 있다. 펀딩 생성 구현 시점에 첫 요청 때의 순서를 고정하는 방식 등의 개선을 검토한다.
-
-코멘트 조회(`GET /api/movies/{movieId}/comments`)는 값이 바뀌지 않는 `createdAt`, `fundingId`를 정렬 기준으로 쓰므로, cursor에 마지막 코멘트의 위치(`movieId`, `createdAt`, `fundingId`)를 담는다. 새 코멘트가 추가되어도 페이지 사이에 중복·누락이 생기지 않는다. 서버는 `limit + 1`개를 조회해 다음 페이지 유무를 판단한다.
-
+기본 랜덤 순서가 페이지 요청마다 변하면 누락/중복이 생길 수 있다. 제안은 첫 목록의 순서를 고정하고 cursor와 함께 유지하는 것이며, 쿠키/localStorage를 쓰지 않는 제약 아래 stateless seed 또는 서버 저장 방식 중 팀 결정이 필요하다. 현재 구현은 서버에 상태를 저장하지 않는 방식이며, cursor에 랜덤 정렬은 seed와 offset(다음 시작 위치)을, 제목 검색과 금액·달성률 정렬은 offset을 담는다. 이 방식 채택은 팀 확정 전이다. 한계로, 금액·달성률 정렬은 페이지를 넘기는 중 순위가 바뀌면(예: 새 펀딩) 이미 본 영화가 다시 나오거나 아직 안 본 영화가 빠질 수 있다. 펀딩 생성 구현 시점에 첫 요청 때의 순서를 고정하는 방식 등의 개선을 검토한다. 
 
 ### 익명 펀딩 참여 UI와 등록 흐름 (서버 계약은 제안)
 

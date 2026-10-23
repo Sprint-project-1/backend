@@ -5,7 +5,6 @@ import {
   parseFundingId,
   parseLimit,
   parseListQuery,
-  parseMovieIds,
 } from "../src/utils/validators.js";
 
 test("parseMovieId: 올바른 값은 숫자로 바꿔 준다", () => {
@@ -91,51 +90,4 @@ test("parseListQuery: 허용되지 않는 값은 400", () => {
   for (const query of badQueries) {
     assert.throws(() => parseListQuery(query), { status: 400 });
   }
-});
-
-function expect400(body) {
-  assert.throws(() => parseMovieIds(body), { status: 400});
-}
-
-test("parseMovieIds: 올바른 요청은 ID 배열을 그대로 돌려준다", () => {
-  assert.deepEqual(parseMovieIds({ movieIds: [1, 2] }), [1, 2]);
-  assert.deepEqual(parseMovieIds({ movieIds: [5, 3, 9] }), [5,3,9]);
-  assert.deepEqual(parseMovieIds({ movieIds: [1,2,3,4,5] }), [1,2,3,4,5]);
-  assert.deepEqual(parseMovieIds({ movieIds: [2147483647, 1] }), [2147483647, 1]);
-});
-
-test("parseMovieIds: 개수가 2~5개가 아니면 400", () => {
-  expect400({ movieIds: [] });
-  expect400({ movieIds: [1] });
-  expect400({ movieIds: [1, 2, 3, 4, 5, 6] });
-});
-
-test("parseMovieIds: 같은 ID가 두 번 들어 있으면 400", () => {
-  expect400({ movieIds: [1, 1] });
-  expect400({ movieIds: [1, 2, 1] });
-  expect400({ movieIds: [3, 4, 5, 6, 3] });
-});
-
-test("parseMoviesIds: 정수가 아닌 값이 있으면 400", () => {
-  expect400({ movieIds: ["1", 2] });
-  expect400({ movieIds: [1.5, 2] });
-  expect400({ movieIds: [null, 2] });
-  expect400({ movieIds: [true, 2] });
-  expect400({ movieIds: [[1], 2] });
-});
-
-test("parseMovieIds: 1보다 작거나 너무 큰 ID가 있으면 400", () => {
-  expect400({ movieIds: [0, 1] });
-  expect400({ movieIds: [-1, 2] });
-  expect400({ movieIds: [2147483648, 1] });
-});
-
-test("parseMovieIds: 본문 모양이 틀리면 400", () => {
-  expect400(undefined);
-  expect400(null);
-  expect400("문자열");
-  expect400([]);
-  expect400({});
-  expect400({ movieIds: "1,2"});
-  expect400({ movieIds: { a: 1} });
 });
