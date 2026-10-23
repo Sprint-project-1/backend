@@ -3,7 +3,9 @@ import { notFound } from "./middlewares/notFound.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import movieRoutes from "./routes/movieRoutes.js";
 import { cors } from "./middlewares/cors.js";
-import comparisonRoutes from "./routes/comparisonRoutes.js"
+import comparisonRoutes from "./routes/comparisonRoutes.js";
+import rankingRoutes from "./routes/rankings.js"; // 랭킹 라우터 추가
+
 
 const app = express();
 
@@ -23,6 +25,7 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/api/movies", movieRoutes);
+app.use("/api/rankings", rankingRoutes); // 랭킹 API 주소 추가
 app.use("/api/comparisons", comparisonRoutes);
 app.use(notFound);
 app.use(errorHandler);
