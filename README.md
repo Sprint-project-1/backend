@@ -2,9 +2,22 @@
 
 CineFund 백엔드를 **내 PC에서 처음 실행하는 방법**, **다음 작업일부터 실행하는 방법**, **Prisma DB 구조**를 정리한 문서입니다.
 
-> **기준: 2026-10-21 백엔드 코드**  
-> 구현 완료: Docker PostgreSQL 18, Prisma 7.10.0, 영화 100편 JSON(출연 배우 포함), DB 마이그레이션·시드·검증, Express 서버와 `GET /health`, 영화 목록·상세 API(`GET /api/movies`, `GET /api/movies/:movieId`), 영화 비교 API(`POST /api/comparisons`), 영화 코멘트 조회 API(`GET /api/movies/:movieId/comments`). 제목 검색은 `q` 파라미터로, 랭킹용 정렬은 같은 목록 API의 `sortBy=amount` 또는 `sortBy=achievementRate`로 구현되어 있습니다.
-> **아직 미구현:** 코멘트 수정, 펀딩 생성·취소 API. `pnpm dev`로 서버를 실행하면 영화 목록·상세·비교·코멘트 조회 API를 호출할 수 있지만, 프런트엔드 연동은 별도 저장소에서 진행합니다.
+> **기준: 2026-10-22 백엔드 코드**
+> 구현 완료: Docker PostgreSQL 18, Prisma 7.10.0, 영화 100편 JSON(출연 배우 포함), DB 마이그레이션·시드·검증, Express 서버와 `GET /health`, 영화 목록·상세 API(`GET /api/movies`, `GET /api/movies/:movieId`), 영화 비교 API(`POST /api/comparisons`), 영화 코멘트 조회 API(`GET /api/movies/:movieId/comments`), 랭킹 전용 조회 API(`GET /api/rankings`). 제목 검색은 목록 API의 `q` 파라미터로 제공합니다. 홈 Top 3는 목록 API의 금액 정렬을 재사용하고, 랭킹 화면은 전용 API를 사용합니다.
+> **아직 미구현:** 코멘트 수정, 펀딩 생성·취소 API. 프런트엔드 API 연동은 별도 저장소에서 진행하며, 백엔드 구현 완료가 화면 연동 완료를 뜻하지는 않습니다.
+
+### 랭킹 API 사용 방법
+
+```http
+GET /api/rankings?limit=10&sortBy=amount&order=desc
+GET /api/rankings?limit=10&sortBy=achievementRate&order=asc
+```
+
+`limit`은 기본 10, 최대 50이며, `sortBy`는 기본 `amount`, `order`는 기본 `desc`입니다. 응답은 공통 영화 모델의 `items`와 `page.nextCursor`, `page.hasMore`를 포함합니다.
+
+첫 요청에는 `cursor`를 생략하고, 다음 요청에는 같은 `limit`, `sortBy`, `order`와 이전 응답의 `page.nextCursor`를 그대로 전달합니다. URL에 넣을 때는 query 값으로 인코딩합니다. `hasMore: false`, `nextCursor: null`이면 조회를 끝내고, 정렬 조건이나 페이지 크기를 바꾸면 cursor를 초기화합니다.
+
+랭킹 cursor는 이미 반환한 영화 ID(`seenIds`)를 누적합니다. 매 요청에서 최신 데이터로 정렬한 뒤 이미 본 영화를 제외하므로, 금액이 변해도 이미 조회한 영화가 다시 나오지 않습니다. 최초 순위를 고정하지 않으므로 여러 페이지를 합친 전체 정렬 순서는 보장하지 않습니다. 홈 Top 3는 기존 `GET /api/movies?limit=3&sortBy=amount&order=desc`를 사용합니다. 상세 계약과 현재 검증 한계는 [API 명세](docs/API_SPEC.md#랭킹-전용-조회)를 참고하세요.
 
 ## 1. 시작 전 — 버전 확인
 
@@ -36,7 +49,7 @@ pnpm db:migrate                # ④ movies / fundings 테이블 생성
 pnpm db:generate               # ⑤ Prisma Client 생성
 pnpm db:seed                   # ⑥ 준비된 JSON 영화 100편을 DB에 저장
 pnpm test:db                   # ⑦ 실제 DB 연결 및 영화 정보 검증
-pnpm test                      # ⑧ 영화 선정 규칙 단위 테스트
+pnpm test                      # ⑧ DB 없는 단위 테스트
 pnpm dev                       # ⑨ Express 서버 실행 (기본 3000번 포트)
 ```
 
@@ -110,10 +123,12 @@ cinefund-backend/
 │   │   └── tmdb.js               # TMDB API 요청 (담당자용)
 │   ├── routes/
 │   │   ├── comparisonRoutes.js   # POST /api/comparisons
-│   │   └── movieRoutes.js        # GET /api/movies, GET /api/movies/:movieId, GET /api/movies/:movieId/comments
+│   │   ├── movieRoutes.js        # GET /api/movies, GET /api/movies/:movieId, GET /api/movies/:movieId/comments
+│   │   └── rankings.js           # GET /api/rankings
 │   ├── services/
 │   │   ├── commentService.js     # 영화별 코멘트 조회(최신순, cursor)
-│   │   └── movieService.js       # 영화 상세 조회, 목록 페이지 조회, 비교할 영화 조회
+│   │   ├── movieService.js       # 영화 상세 조회, 목록 페이지 조회, 비교할 영화 조회
+│   │   └── rankingService.js     # 최신 영화 조회, 랭킹 페이지 및 응답 변환
 │   ├── utils/
 │   │   ├── checkDb.js            # 실제 DB가 JSON과 일치하는지 검사
 │   │   ├── commentCursor.js      # 코멘트 cursor 생성·검증
@@ -121,8 +136,10 @@ cinefund-backend/
 │   │   ├── validators.js         # 영화 ID·펀딩 ID·limit·목록 query·비교 요청 본문 검증
 │   │   ├── movieResponse.js      # DB 영화 → API 공통 응답 모델 변환
 │   │   ├── movieSort.js          # 랜덤·제목·금액·달성률 정렬
-│   │   └── moviePage.js          # cursor 생성·검증과 페이지 자르기
-│   ├── app.js                    # Express 설정, /health, /api/movies·/api/comparisons 연결, 오류 처리
+│   │   ├── moviePage.js          # 목록 offset cursor 생성·검증과 페이지 자르기
+│   │   ├── rankingCursor.js      # 랭킹 seenIds cursor 생성·검증
+│   │   └── rankingPage.js        # 최신 정렬, 이미 본 영화 제외, 다음 페이지 생성
+│   ├── app.js                    # Express 설정, /health, /api/movies·/api/comparisons·/api/rankings 연결, 오류 처리
 │   └── server.js                 # 서버 실행
 ├── tests/
 │   ├── movieData.test.js         # 영화 JSON·선정 기준 단위 테스트
@@ -266,7 +283,7 @@ src/utils/checkDb.js (pnpm test:db)
 | 누적 후원액 | `totalFundedAmount` | **KRW** | 신규 영화는 0원           |
 | 개별 후원액 | `Funding.amount`    | **KRW** | 향후 후원 API에서 사용    |
 
-**선정용 고정 환율:** 1 USD = 1,400 KRW는 최소 제작비 3,500만 원 상당(25,000 USD) 검증에만 사용합니다. 목표 펀딩액을 DB에 저장하거나 달성률을 계산하지 않습니다.
+**선정용 고정 환율:** 1 USD = 1,400 KRW는 최소 제작비 3,500만 원 상당(25,000 USD) 검증에만 사용합니다. 별도 목표액 컬럼은 없습니다. API 명세의 화면 규칙은 `productionBudget` 숫자를 환산 없이 KRW 목표액으로 표시하고, 달성률은 `totalFundedAmount / productionBudget × 100`으로 계산하는 것입니다. 서버는 달성률 정렬을 지원하며 달성률 자체를 응답 필드로 반환하지 않습니다.
 
 ### 7-3. 영화 관련 JavaScript 파일이 3개인 이유
 
@@ -339,7 +356,7 @@ Prisma의 `BigInt`는 일반 JSON으로 그대로 응답할 수 없어, 현재 `
 | `movieDetails.json` 오류       | JSON 존재 여부와 `actors`·제작비·100편 조건 확인                                                                                    |
 | `pnpm db:seed`에서 목록 불일치 | **기존 DB 영화 목록과 JSON이 다름**. 기존 후원 기록 확인 후 담당자와 조율                                                           |
 | `pnpm test`만 성공             | DB 검사까지 완료한 게 아님. `pnpm test:db` 별도로 실행                                                                              |
-| `/api/movies` 요청이 안 됨     | 구현된 API는 `GET /api/movies`, `GET /api/movies/:movieId`, `GET /api/movies/:movieId/comments`, `POST /api/comparisons`뿐(펀딩·코멘트 수정은 미구현). POST 요청은 `Content-Type: application/json` 헤더가 없으면 본문을 읽지 못해 400이 납니다. `pnpm dev` 실행, `pnpm db:up`·`pnpm db:seed`로 DB와 영화 100편 적재, 요청 경로 철자를 확인. 응답이 `{ "error": ... }`이면 `code`를 확인 |
+| 영화 조회 API 요청이 안 됨     | 구현된 `/api` 경로는 `GET /api/movies`, `GET /api/movies/:movieId`, `GET /api/movies/:movieId/comments`, `GET /api/rankings`, `POST /api/comparisons`입니다(펀딩 생성·취소·코멘트 수정은 미구현). POST 요청에는 `Content-Type: application/json` 헤더를 사용합니다. `pnpm dev` 실행, `pnpm db:up`·`pnpm db:seed`로 DB와 영화 100편 적재, 요청 경로 철자를 확인합니다. 응답이 `{ "error": ... }`이면 `code`를 확인합니다. |
 | 브라우저 콘솔에 CORS 오류        | `.env`의 `CORS_ORIGINS`가 프런트엔드 주소(`http://`, 포트까지 정확히)와 같은지 확인하고, 수정했다면 `pnpm dev`를 다시 시작. curl에서는 문제없고 브라우저에서만 생긴다면 대부분 이 설정 |
 
 ## 11. 협업할 때 주의할 점
