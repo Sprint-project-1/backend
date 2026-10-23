@@ -1,6 +1,6 @@
 # 데이터베이스 스키마
 
-> 현재 구현 기준 문서. 기준 파일은 `prisma/schema.prisma`와 적용된 migration이다. 영화 조회 API는 구현, 펀딩 관련 API는 아직 구현 전이며, 아래 API 계약은 `docs/API_SPEC.md`를 따른다.
+> 현재 구현 기준 문서. 기준 파일은 `prisma/schema.prisma`와 적용된 migration이다. 영화 조회 및 펀딩 생성·취소·코멘트 수정 API 코드가 구현되어 있으며, DB/HTTP 통합 검증 상태는 별도로 확인한다. API 계약은 `docs/API_SPEC.md`를 따른다.
 
 ## 현재 구현된 모델
 
@@ -64,7 +64,7 @@ Funding에는 `(movieId, createdAt, fundingId)` 인덱스가 있다. 실제 필�
 - 고정 선정 목록과 영화 상세 데이터는 `data/movieDetails.json`에 저장한다. `pnpm movies:select`는 영화 선정 단계에서 TMDB를 사용하고, `pnpm db:seed`는 JSON 파일만 읽어 `Movie`를 upsert한다. 앱의 영화 조회 요청마다 TMDB를 호출하지 않는다.
 - 선정 기준의 25,000 USD는 영화 선정을 위한 기준이다. 선택에 쓰는 기준 환율(1 USD = 1,400 KRW)은 3,500만 원 상당 여부를 판단하기 위한 값이며, 저장된 `productionBudget`을 변환하는 환율이 아니다.
 - 팀의 표시 정책은 `productionBudget`의 숫자를 환산 없이 같은 숫자의 KRW 목표액 표시값으로 사용하고, 달성률을 `totalFundedAmount / productionBudget × 100`으로 계산하는 것이다. `productionBudget`이 NULL 또는 0이면 달성률을 계산하지 않는다. 별도 `fundingGoal` 컬럼은 없다.
-- `totalFundedAmount`는 펀딩 원장 합계와 일치해야 한다. 펀딩 생성/취소와 누적액 증감은 한 트랜잭션으로 처리한다. 동시성 제어와 재집계 구현은 API 구현 시 검증한다.
+- `totalFundedAmount`는 펀딩 원장 합계와 일치해야 한다. 펀딩 생성/취소와 누적액 증감은 한 트랜잭션으로 처리한다. 코드에는 원자적 증감이 구현되어 있으며, 실제 DB 동시성/정합성 검증은 별도 실행이 필요하다.
 - seed 재실행은 고정 TMDB ID를 기준으로 upsert한다. 기존 누적액과 펀딩 기록은 덮어쓰지 않으며, 고정 목록 밖 영화가 DB에 있으면 자동 삭제하지 않고 중단한다.
 
 ## API 직렬화와 검증

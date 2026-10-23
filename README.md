@@ -2,9 +2,9 @@
 
 CineFund 백엔드를 **내 PC에서 처음 실행하는 방법**, **다음 작업일부터 실행하는 방법**, **Prisma DB 구조**를 정리한 문서입니다.
 
-> **기준: 2026-10-22 백엔드 코드**
-> 구현 완료: Docker PostgreSQL 18, Prisma 7.10.0, 영화 100편 JSON(출연 배우 포함), DB 마이그레이션·시드·검증, Express 서버와 `GET /health`, 영화 목록·상세 API(`GET /api/movies`, `GET /api/movies/:movieId`), 영화 비교 API(`POST /api/comparisons`), 영화 코멘트 조회 API(`GET /api/movies/:movieId/comments`), 랭킹 전용 조회 API(`GET /api/rankings`). 제목 검색은 목록 API의 `q` 파라미터로 제공합니다. 홈 Top 3는 목록 API의 금액 정렬을 재사용하고, 랭킹 화면은 전용 API를 사용합니다.
-> **아직 미구현:** 코멘트 수정, 펀딩 생성·취소 API. 프런트엔드 API 연동은 별도 저장소에서 진행하며, 백엔드 구현 완료가 화면 연동 완료를 뜻하지는 않습니다.
+> **기준: 2026-10-23 백엔드 코드**
+> 구현 완료: Docker PostgreSQL 18, Prisma 7.10.0, 영화 100편 JSON, DB 마이그레이션·시드·검증, Express 서버의 조회·비교·랭킹 API와 모의 펀딩 생성·취소·코멘트 수정 API. 펀딩 생성/취소는 원장과 영화 누적액을 DB 트랜잭션으로 갱신하며 비밀번호는 scrypt 단방향 해시로 저장합니다.
+> **검증 상태:** 펀딩 API의 DB/HTTP 통합 검증과 프런트엔드 연동은 아직 확인하지 않았습니다. 코드 구현 완료가 화면 연동 완료를 뜻하지는 않습니다.
 
 ### 랭킹 API 사용 방법
 
@@ -167,7 +167,7 @@ cinefund-backend/
 | Prisma 모델 | 실제 DB 테이블 | 용도                                                            |
 | ----------- | -------------- | --------------------------------------------------------------- |
 | `Movie`     | `movies`       | 영화 100편, USD 제작비·KRW 누적 후원액 저장                       |
-| `Funding`   | `fundings`     | 어느 영화에 누가 얼마를 후원했는지 기록하는 구조 (API는 미구현) |
+| `Funding`   | `fundings`     | 모의 펀딩 원장. 생성·취소·코멘트 수정 API에서 사용 |
 
 ### 6-1. `Movie` — 영화 한 편의 정보
 
@@ -356,7 +356,7 @@ Prisma의 `BigInt`는 일반 JSON으로 그대로 응답할 수 없어, 현재 `
 | `movieDetails.json` 오류       | JSON 존재 여부와 `actors`·제작비·100편 조건 확인                                                                                    |
 | `pnpm db:seed`에서 목록 불일치 | **기존 DB 영화 목록과 JSON이 다름**. 기존 후원 기록 확인 후 담당자와 조율                                                           |
 | `pnpm test`만 성공             | DB 검사까지 완료한 게 아님. `pnpm test:db` 별도로 실행                                                                              |
-| 영화 조회 API 요청이 안 됨     | 구현된 `/api` 경로는 `GET /api/movies`, `GET /api/movies/:movieId`, `GET /api/movies/:movieId/comments`, `GET /api/rankings`, `POST /api/comparisons`입니다(펀딩 생성·취소·코멘트 수정은 미구현). POST 요청에는 `Content-Type: application/json` 헤더를 사용합니다. `pnpm dev` 실행, `pnpm db:up`·`pnpm db:seed`로 DB와 영화 100편 적재, 요청 경로 철자를 확인합니다. 응답이 `{ "error": ... }`이면 `code`를 확인합니다. |
+| API 요청이 실패함     | 구현 경로와 요청/응답 계약은 [API 명세](docs/API_SPEC.md)를 확인합니다. POST/PATCH 요청에는 `Content-Type: application/json` 헤더를 사용합니다. `pnpm dev` 실행, `pnpm db:up`·`pnpm db:migrate`·`pnpm db:generate`·`pnpm db:seed`로 DB 준비를 확인합니다. 응답이 `{ "error": ... }`이면 `code`를 확인합니다. |
 | 브라우저 콘솔에 CORS 오류        | `.env`의 `CORS_ORIGINS`가 프런트엔드 주소(`http://`, 포트까지 정확히)와 같은지 확인하고, 수정했다면 `pnpm dev`를 다시 시작. curl에서는 문제없고 브라우저에서만 생긴다면 대부분 이 설정 |
 
 ## 11. 협업할 때 주의할 점

@@ -2,7 +2,7 @@
 
 > 구조와 구현 상태를 함께 기록한다. Figma에는 회원가입/로그인 화면은 없지만 상세 화면에 비로그인 펀딩 입력 및 코멘트 수정 UI가 있다. 화면 설계와 등록 API/DB 동작 결정은 별개다. 팀원별 Docker 환경의 PostgreSQL과 공통 schema/migration/seed를 사용한다. 운영 DB 구성은 미정이다.
 
-> 2026-10-22 코드 기준: 이 저장소에는 Node.js/Express 서버, Prisma schema와 migration, PostgreSQL Compose 및 영화 JSON seed가 있다. 현재 구현된 HTTP 경로는 `GET /health`, `GET /api/movies`, `GET /api/movies/{movieId}`, `POST /api/comparisons`, `GET /api/movies/{movieId}/comments`, `GET /api/rankings`이며 펀딩 생성·취소와 코멘트 수정 API는 미구현이다. 프런트엔드는 별도 `cine-fund` 저장소에서 관리하며 API 연동 완료를 뜻하지 않는다.
+> 2026-10-23 코드 기준: 이 저장소에는 Node.js/Express 서버, Prisma schema와 migration, PostgreSQL Compose, 영화 JSON seed, 조회·비교·랭킹 API 및 모의 펀딩 생성·취소·코멘트 수정 API가 있다. 펀딩 API는 원장과 영화 누적액을 트랜잭션으로 갱신하고 비밀번호를 scrypt 해시로 저장한다. DB/HTTP 통합 검증과 별도 `cine-fund` 프런트엔드 연동 완료 여부는 확인되지 않았다.
 
 ## 구성도
 
@@ -74,12 +74,12 @@ flowchart LR
 3. 비밀번호 해시 생성 후 트랜잭션에서 Funding 원장 기록
 4. 응답은 비밀 값 제외. 누적 금액을 재집계하거나 동시성 안전하게 갱신
 
-### 코멘트 수정 (세부 정책/API 합의가 필요한 제안 흐름)
+### 코멘트 수정 (구현 흐름 및 남은 정책 결정)
 
 1. 클라이언트가 `fundingId`, 비밀번호, 새 코멘트로 PATCH
 2. 서버가 기록을 조회하고 해시와 비밀번호 비교
 3. 일치할 때에만 코멘트를 갱신. 틀리면 일반화된 401/403 오류 응답
-4. 시도 횟수 제한과 비밀번호 해시 알고리즘/비용은 구현 전 결정
+4. 시도 횟수 제한과 해시 비용 강화 여부는 공개 전 검토
 
 ## 오류 및 환경변수
 

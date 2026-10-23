@@ -1,6 +1,6 @@
 # CineFund 프로젝트 개발 명세
 
-> 기준: 기존 기획안 최종 수정 2026-10-08 및 2026-10-22 백엔드 코드 대조. 프런트엔드는 별도 저장소이며, 이 백엔드 저장소에는 DB·seed·Express 서버가 있다. 영화 목록·상세·비교·코멘트 조회·랭킹 전용 조회가 구현되어 있다. 모의 펀딩 생성·취소 및 코멘트 수정은 미구현이다. FE 연동 완료를 뜻하지 않는다.
+> 기준: 기존 기획안 최종 수정 2026-10-08 및 2026-10-23 백엔드 코드 대조. 프런트엔드는 별도 저장소다. 이 백엔드 저장소에는 DB·seed·Express 서버와 영화 조회·비교·랭킹 API, 모의 펀딩 생성·취소·코멘트 수정 API가 구현되어 있다. 펀딩 API DB/HTTP 통합 검증 및 FE 연동 완료를 뜻하지 않는다.
 
 ## 배경 및 가치
 
@@ -48,7 +48,7 @@
 
 ## 제약 및 외부 의존성
 
-프런트엔드는 별도 `cine-fund` 저장소에서 React/JSX, Vite, React Router, Tailwind CSS, React Compiler, ESLint, pnpm을 사용한다. 이 백엔드 저장소에는 Node.js, Express, Prisma, PostgreSQL 설정과 seed가 있으며, `GET /health`와 영화 목록·상세·비교·코멘트 조회·랭킹 전용 조회 API가 구현되어 있다. 모의 펀딩 생성·취소 및 코멘트 수정은 미구현이다. TMDB는 고정 영화 100편을 선정해 JSON으로 저장하는 단계에 쓰며, DB seed와 앱 요청은 이 JSON/DB를 사용한다. API 키와 초기 적재 실패/갱신 절차를 관리한다. 목표액 표시 규칙은 TMDB 제작비 숫자를 환율 변환 없이 동일한 숫자의 KRW로 사용하는 것이다.
+프런트엔드는 별도 `cine-fund` 저장소에서 React/JSX, Vite, React Router, Tailwind CSS, React Compiler, ESLint, pnpm을 사용한다. 이 백엔드 저장소에는 Node.js, Express, Prisma, PostgreSQL 설정과 seed가 있으며, `GET /health`, 영화 목록·상세·비교·코멘트 조회·랭킹 API 및 모의 펀딩 생성·취소·코멘트 수정 API가 구현되어 있다. 펀딩 API의 DB/HTTP 통합 검증 및 FE 연동은 미확인이다. TMDB는 고정 영화 100편을 선정해 JSON으로 저장하는 단계에 쓰며, DB seed와 앱 요청은 이 JSON/DB를 사용한다. API 키와 초기 적재 실패/갱신 절차를 관리한다. 목표액 표시 규칙은 TMDB 제작비 숫자를 환율 변환 없이 동일한 숫자의 KRW로 사용하는 것이다.
 
 ## 확장 계획
 
@@ -65,7 +65,7 @@
 
 ## 기술 쟁점 분석
 
-저장소 상태 확인: 프런트엔드와 백엔드는 서로 다른 저장소에서 관리한다. 백엔드 저장소에는 Prisma schema/migration, PostgreSQL Compose, TMDB 영화 선정/JSON seed가 있고, 영화 목록·상세·비교·코멘트 조회·랭킹 전용 조회 API가 구현되어 있다. 모의 펀딩 생성·취소 및 코멘트 수정은 미구현이다. 세부 실행 명령은 [TECH_STACK](TECH_STACK.md), 프런트엔드 화면 경로와 연동 상태는 이 저장소의 [PAGE_SPEC](PAGE_SPEC.md)을 기준으로 한다.
+저장소 상태 확인: 프런트엔드와 백엔드는 서로 다른 저장소에서 관리한다. 백엔드 저장소에는 Prisma schema/migration, PostgreSQL Compose, TMDB 영화 선정/JSON seed가 있고 조회·비교·랭킹 및 모의 펀딩 생성·취소·코멘트 수정 API가 구현되어 있다. 세부 실행 명령은 [TECH_STACK](TECH_STACK.md), 프런트엔드 화면 경로와 연동 상태는 이 저장소의 [PAGE_SPEC](PAGE_SPEC.md)을 기준으로 한다.
 
 | 항목 | 현재 상태 / 문제 및 영향 | 권장 해결책 | 합의 |
 |---|---|---|---|

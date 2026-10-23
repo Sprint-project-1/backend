@@ -1,6 +1,6 @@
 # CineFund API 명세
 
-> **상태: 프런트엔드·백엔드 구현 기준 제안, 2026-10-19; 구현 현황 갱신 2026-10-22.** 현재 서버에서 구현된 경로는 `GET /health`, `GET /api/movies`, `GET /api/movies/{movieId}`, `POST /api/comparisons`, `GET /api/movies/{movieId}/comments`, `GET /api/rankings`이며 펀딩 생성·취소와 코멘트 수정 경로는 미구현이다. 아래 `/api` 계약은 페이지 담당자 초안을 통합한 구현 기준이다. 실제 결제, 로그인, 회원가입은 포함하지 않는다.
+> **상태: 프런트엔드·백엔드 구현 기준 제안, 구현 현황 갱신 2026-10-23.** 구현된 경로는 `GET /health`, 영화 목록·상세·코멘트 조회, 랭킹 조회, 비교, 펀딩 생성·취소 및 코멘트 수정이다. 아래 `/api` 계약은 페이지 담당자 초안을 통합한 구현 기준이다. 실제 결제, 로그인, 회원가입은 포함하지 않는다. DB/HTTP 통합 검증 및 프런트엔드 연동 완료 여부는 별도 확인이 필요하다.
 
 ## 1. 공통 계약
 
@@ -75,9 +75,9 @@
 | `GET` | `/api/movies/{movieId}` | 구현됨 | 영화 상세 조회 |
 | `GET` | `/api/movies/{movieId}/comments` | 구현됨 | 영화별 코멘트 조회 |
 | `GET` | `/api/rankings` | 구현됨 | 펀딩액·달성률 정렬 및 seenIds 기반 랭킹 페이지네이션 |
-| `POST` | `/api/movies/{movieId}/fundings` | 미구현 | 익명 모의 펀딩 생성 |
-| `POST` | `/api/fundings/{fundingId}/cancel` | 미구현 | 비밀번호 검증 후 모의 펀딩 취소 |
-| `PATCH` | `/api/fundings/{fundingId}/comment` | 미구현 | 비밀번호 검증 후 코멘트 수정 |
+| `POST` | `/api/movies/{movieId}/fundings` | 구현됨 | 익명 모의 펀딩 생성 |
+| `POST` | `/api/fundings/{fundingId}/cancel` | 구현됨 | 비밀번호 검증 후 모의 펀딩 취소 |
+| `PATCH` | `/api/fundings/{fundingId}/comment` | 구현됨 | 비밀번호 검증 후 코멘트 수정 |
 | `POST` | `/api/comparisons` | 구현됨 | 2~5편 비교 정보 조회 |
 
 ## 2. 페이지와 API 연결
@@ -301,7 +301,7 @@ cursor는 마지막으로 응답한 코멘트의 위치(`createdAt`, `fundingId`
   "amount": "10000",
   "nickname": "영화팬",
   "comment": "기대돼요",
-  "password": "example-secret"
+  "password": "cinefund123"
 }
 ```
 
@@ -343,7 +343,7 @@ Funding 원장 생성과 `Movie.totalFundedAmount` 증가는 하나의 DB 트랜
 
 ```json
 {
-  "password": "example-secret",
+  "password": "cinefund123",
   "comment": "수정한 코멘트"
 }
 ```
@@ -374,7 +374,7 @@ Funding 원장 생성과 `Movie.totalFundedAmount` 증가는 하나의 DB 트랜
 요청 본문:
 
 ```json
-{ "password": "example-secret" }
+{ "password": "cinefund123" }
 ```
 
 `password`는 필수이며 영문자와 숫자를 각각 하나 이상 포함한 8~12자여야 한다. `fundingId`는 양의 정수 ID를 10진수 경로 문자열로 전달한다. 서버는 저장된 비밀번호 해시를 검증한다. 비밀번호가 틀리면 403 `INVALID_CREDENTIAL`, 기록이 없으면 404 `FUNDING_NOT_FOUND`, 잘못된 ID나 본문이면 400을 반환하며 이때 기록과 누적액은 바뀌지 않는다.
@@ -460,7 +460,7 @@ Funding 원장 생성과 `Movie.totalFundedAmount` 증가는 하나의 DB 트랜
 
 ## 11. 구현 전제 및 완료 체크
 
-이 문서의 endpoint는 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `GET /api/rankings`, `POST /api/movies/{movieId}/fundings`, `POST /api/fundings/{fundingId}/cancel`, `PATCH /api/fundings/{fundingId}/comment`, `POST /api/comparisons`다. 홈 Top 3는 목록 endpoint를 재사용하고 랭킹 화면은 전용 endpoint를 사용한다. 구현 상태는 1장의 표를 따른다. 영화 목록·상세·코멘트 조회·랭킹 전용 조회·비교는 구현되어 있으며, 펀딩 생성·취소 및 코멘트 수정은 미구현이다. 구현된 코드의 존재가 DB/HTTP 통합 검증이나 FE 연동 완료를 뜻하지는 않는다.
+이 문서의 endpoint는 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `GET /api/rankings`, `POST /api/movies/{movieId}/fundings`, `POST /api/fundings/{fundingId}/cancel`, `PATCH /api/fundings/{fundingId}/comment`, `POST /api/comparisons`다. 홈 Top 3는 목록 endpoint를 재사용하고 랭킹 화면은 전용 endpoint를 사용한다. 구현 상태는 1장의 표를 따른다. 모든 endpoint 코드가 존재한다. 펀딩 endpoint는 DB/HTTP 통합 검증과 FE 연동을 아직 확인하지 않았다.
 
 - [ ] Prisma 모델/실제 DB와 공통 영화 응답 모델 필드가 일치하는지 확인한다. 필드가 없으면 schema/seed를 먼저 맞춘다.
 - [ ] 누적액의 단일 원천을 정하고 목록·상세·비교·랭킹이 같은 값을 반환하게 한다.
@@ -475,4 +475,4 @@ Funding 원장 생성과 `Movie.totalFundedAmount` 증가는 하나의 DB 트랜
 - [ ] 상세·비교 화면에서 동일한 공통 필드명과 null 처리 규칙을 사용한다.
 - [ ] API 구현 및 통합 검증 시 정상·빈 결과·오류·페이지 경계·비교 ID 검증 시나리오를 확인한다.
 
-AI 요약 endpoint는 외부 서비스·비용·데이터 처리 정책이 정해지지 않아 범위에서 제외한다. 펀딩·취소·코멘트 계약은 화면의 입력과 확인 흐름을 기준으로 한 구현 제안이다. 저장소 README의 API 구현 상태 표시는 실제 코드와 일치하도록 구현 PR에서 갱신한다.
+AI 요약 endpoint는 외부 서비스·비용·데이터 처리 정책이 정해지지 않아 범위에서 제외한다. 펀딩·취소·코멘트 계약은 화면의 입력과 확인 흐름을 기준으로 한 구현 제안이다. 구현 상태는 코드 대조 결과이며 자동/통합 검증 및 FE 연동 상태와 구분한다.
