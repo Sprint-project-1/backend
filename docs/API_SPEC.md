@@ -1,6 +1,6 @@
 # CineFund API 명세
 
-> **상태: 프런트엔드·백엔드 구현 기준 제안, 2026-10-19.** 2026-10-21 기준 서버에서 구현된 경로는 `GET /health`, `GET /api/movies`, `GET /api/movies/{movieId}`이며 나머지 `/api` 경로는 미구현이다. 아래 `/api` 계약은 페이지 담당자 초안을 통합한 구현 기준이다. 실제 결제, 로그인, 회원가입은 포함하지 않는다.
+> **상태: 프런트엔드·백엔드 구현 기준 제안, 2026-10-19.** 현재 문서상 서버에서 구현된 경로는 `GET /health`뿐이다. 아래 `/api` 계약은 페이지 담당자 초안을 통합한 구현 기준이다. 실제 결제, 로그인, 회원가입은 포함하지 않는다.
 
 ## 1. 공통 계약
 
@@ -71,8 +71,8 @@
 | Method | Path | 상태 | 기능 |
 |---|---|---|---|
 | `GET` | `/health` | 구현됨 | 서버 상태 확인 |
-| `GET` | `/api/movies` | 구현됨 | 영화 목록·제목 검색·정렬·페이지네이션 |
-| `GET` | `/api/movies/{movieId}` | 구현됨 | 영화 상세 조회 |
+| `GET` | `/api/movies` | 미구현 | 영화 목록·제목 검색·정렬·페이지네이션 |
+| `GET` | `/api/movies/{movieId}` | 미구현 | 영화 상세 조회 |
 | `GET` | `/api/movies/{movieId}/comments` | 미구현 | 영화별 코멘트 조회 |
 | `POST` | `/api/movies/{movieId}/fundings` | 미구현 | 익명 모의 펀딩 생성 |
 | `POST` | `/api/fundings/{fundingId}/cancel` | 미구현 | 비밀번호 검증 후 모의 펀딩 취소 |
@@ -114,8 +114,7 @@
 - `sortBy=achievementRate`는 `totalFundedAmount / productionBudget × 100` 기준이다. `productionBudget`이 `null` 또는 0인 영화는 두 방향 모두 결과 뒤에 둔다.
 - 금액 또는 달성률이 같으면 `movieId` 오름차순으로 정렬한다. 제목 검색 기본 정렬은 `title` 오름차순, 제목이 같으면 `movieId` 오름차순이다.
 - 검색과 명시적 정렬이 없는 첫 요청에서는 100편의 순서를 한 번 무작위로 만든다. 응답 cursor는 그 순서의 다음 위치와 해당 요청의 필터/정렬 조건을 보존한다. 후속 페이지에서 순서를 다시 섞지 않는다.
-- cursor는 불투명한 값이며 클라이언트가 생성·해석하지 않는다. cursor의 요청 조건이 현재 query와 맞지 않거나 유효하지 않으면 400을 반환한다. 서버가 발급할 수 없는 값(전체 개수 이상의 시작 위치 등)도 유효하지 않은 cursor로 본다.
-- `sortBy=amount`, `sortBy=achievementRate`로 페이지를 넘기는 동안 영화의 누적 펀딩액이 바뀌어 순위가 달라지면, 이미 본 영화가 다시 나오거나 아직 안 본 영화가 빠질 수 있다. 이 한계의 개선 방식(첫 요청 때의 순서를 고정하는 방법 등)은 펀딩 생성 구현 시 검토하며 현재는 TBD다.
+- cursor는 불투명한 값이며 클라이언트가 생성·해석하지 않는다. cursor의 요청 조건이 현재 query와 맞지 않거나 유효하지 않으면 400을 반환한다.
 - 마지막 페이지는 `nextCursor: null`, `hasMore: false`다. 다음 항목이 없을 때 빈 페이지를 추가로 반환하지 않는다.
 - 이 API는 페이지 번호 대신 cursor를 사용한다. 영화 탐색 UI는 페이지별 cursor를 메모리에 보관해 번호형 페이지 컨트롤을 연결한다. 방문하지 않은 페이지 번호로 바로 이동할 수 없으며, 검색어·정렬·페이지 크기가 바뀌면 페이지와 cursor 캐시를 초기화한다.
 
@@ -421,11 +420,11 @@ Funding 원장 생성과 `Movie.totalFundedAmount` 증가는 하나의 DB 트랜
 
 ## 11. 구현 전제 및 완료 체크
 
-이 문서로 착수할 endpoint는 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `POST /api/movies/{movieId}/fundings`, `POST /api/fundings/{fundingId}/cancel`, `PATCH /api/fundings/{fundingId}/comment`, `POST /api/comparisons`다. 홈과 랭킹은 목록 endpoint를 재사용한다. 구현 상태는 1장의 구현 상태 표를 따르며, 현재 `GET /api/movies`, `GET /api/movies/{movieId}` 외의 `/api` endpoint는 구현 완료로 간주하지 않는다.
+이 문서로 착수할 endpoint는 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `POST /api/movies/{movieId}/fundings`, `POST /api/fundings/{fundingId}/cancel`, `PATCH /api/fundings/{fundingId}/comment`, `POST /api/comparisons`다. 홈과 랭킹은 목록 endpoint를 재사용한다. `/health` 외에는 현재 구현 완료로 간주하지 않는다.
 
 - [ ] Prisma 모델/실제 DB와 공통 영화 응답 모델 필드가 일치하는지 확인한다. 필드가 없으면 schema/seed를 먼저 맞춘다.
 - [ ] 누적액의 단일 원천을 정하고 목록·상세·비교·랭킹이 같은 값을 반환하게 한다.
-- [x] 기본 랜덤 조회의 순서를 cursor 페이지 간 유지한다. (seed를 cursor에 담는 방식으로 백엔드 구현, 단위 테스트와 curl 수동 확인 완료. DB를 포함한 자동 통합 테스트는 미완료)
+- [ ] 기본 랜덤 조회의 순서를 cursor 페이지 간 유지한다.
 - [ ] DB 및 영화 seed 100편의 데이터 형식이 정리된 필드와 일치하는지 확인한다.
 - [ ] FE가 목록 페이지당 10개를 요청하고, 검색어/정렬이 바뀔 때 cursor를 초기화한다.
 - [x] FE의 번호형 페이지 UI는 메모리의 페이지별 cursor 캐시로 연결한다. 다음 페이지 cursor를 저장하고, 검색어·정렬·페이지 크기가 바뀌면 현재 페이지와 cursor 캐시를 초기화한다. 방문하지 않은 페이지로 바로 이동하는 기능은 지원하지 않는다.

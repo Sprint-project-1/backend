@@ -1,6 +1,6 @@
 # 데이터베이스 스키마
 
-> 현재 구현 기준 문서. 기준 파일은 `prisma/schema.prisma`와 적용된 migration이다. 영화 조회 API는 구현, 펀딩 관련 API는 아직 구현 전이며, 아래 API 계약은 `docs/API_SPEC.md`를 따른다.
+> 현재 구현 기준 문서. 기준 파일은 `prisma/schema.prisma`와 적용된 migration이다. API는 아직 구현 전이며, 아래 API 계약은 `docs/API_SPEC.md`를 따른다.
 
 ## 현재 구현된 모델
 
