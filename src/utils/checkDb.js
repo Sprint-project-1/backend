@@ -31,8 +31,23 @@ async function main() {
       throw new Error(`영화 정보 또는 펀딩 금액 불일치: ${row.tmdbId}`);
     }
   }
+  const fundingTotals = await prisma.funding.groupBy({
+    by: ["movieId"],
+    _sum: { amount: true },
+  });
+  const totalsByMovieId = new Map(
+    fundingTotals.map(({ movieId, _sum }) => [movieId, _sum.amount ?? 0n]),
+  );
+  for (const row of rows) {
+    const fundingTotal = totalsByMovieId.get(row.movieId) ?? 0n;
+    if (fundingTotal !== row.totalFundedAmount) {
+      throw new Error(
+        `펀딩 원장 합계 불일치: ${row.tmdbId} (누적액 ${row.totalFundedAmount}, 원장 합계 ${fundingTotal})`,
+      );
+    }
+  }
   console.log("2/3 고정 영화 ID 100편 일치");
-  console.log("3/3 제목·원제·한국 관람등급·감독·출연 배우·장르·설명·포스터·제작비(USD)·누적 펀딩(KRW) 검증 성공");
+  console.log("3/3 영화 정보·제작비(USD)·누적 펀딩(KRW)·Funding 원장 합계 검증 성공");
   console.log("DB 테스트 통과 ✅");
 }
 
