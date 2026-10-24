@@ -2,9 +2,9 @@
 
 CineFund 백엔드를 **내 PC에서 처음 실행하는 방법**, **다음 작업일부터 실행하는 방법**, **Prisma DB 구조**를 정리한 문서입니다.
 
-> **기준: 2026-10-23 백엔드 코드**
+> **기준: 2026-10-25 백엔드 코드**
 > 구현 완료: Docker PostgreSQL 18, Prisma 7.10.0, 영화 100편 JSON, DB 마이그레이션·시드·검증, Express 서버의 조회·비교·랭킹 API와 모의 펀딩 생성·취소·코멘트 수정 API. 펀딩 생성/취소는 원장과 영화 누적액을 DB 트랜잭션으로 갱신하며 비밀번호는 scrypt 단방향 해시로 저장합니다.
-> **검증 상태:** 펀딩 API의 DB/HTTP 통합 검증과 프런트엔드 연동은 아직 확인하지 않았습니다. 코드 구현 완료가 화면 연동 완료를 뜻하지는 않습니다.
+> **검증 상태:** DB 없는 단위 테스트와 DB seed 검증은 각각 `pnpm test`, `pnpm test:db`로 수행합니다. 펀딩 API DB/HTTP 통합 검증과 프런트엔드 연동은 별도 확인이 필요합니다. 코드 구현 완료가 화면 연동 완료를 뜻하지는 않습니다.
 
 ### 랭킹 API 사용 방법
 
@@ -97,7 +97,7 @@ pnpm dev         # 백엔드 개발 서버 시작 (Ctrl + C로 서버 종료)
 - 팀에서 **영화 JSON 업데이트에 합의한 경우에만**: `pnpm db:seed` (DB 상태 확인 후)
 - 작업 후 Docker DB 종료: `pnpm db:down` (**DB 데이터 유지**)
 
-> **주의:** `pnpm exec prisma migrate reset` 또는 `docker compose down -v`는 기존 DB 데이터를 삭제할 수 있습니다. 팀원의 영화·후원 기록이 있는 DB에서 임의로 실행하지 마세요.
+> **데이터 보호:** `pnpm exec prisma migrate reset`과 `docker compose down -v`는 기존 DB 데이터를 삭제할 수 있으므로 실행하지 마세요. 일반 종료는 `pnpm db:down`을 사용하며, Docker 볼륨의 데이터는 유지됩니다.
 
 ## 5. 폴더 구조 — 어디를 수정해야 할까?
 

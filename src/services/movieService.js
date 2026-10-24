@@ -15,7 +15,7 @@ export async function getMovieById(movieId) {
   return toMovieResponse(movie);
 }
 
-export async function listMovies(params,cursorText) {
+export async function listMovies(params, cursorText) {
   const allMovies = await prisma.movie.findMany();
 
   let movies = allMovies;
@@ -29,16 +29,7 @@ export async function listMovies(params,cursorText) {
   const result = buildListPage(movies, params, cursorText);
   const items = result.items.map((movie) => toMovieResponse(movie));
 
-  return { items: items, page: result.page };
-}
-
-function findMovieById(movies, id) {
-  for (let i = 0; i < movies.length; i++) {
-    if (movies[i].movieId === id) {
-      return movies[i];
-    }
-  }
-  return null;
+  return { items, page: result.page };
 }
 
 export async function getMoviesForComparison(movieIds) {
@@ -50,12 +41,9 @@ export async function getMoviesForComparison(movieIds) {
     throw createError(404, "MOVIE_NOT_FOUND", "영화를 찾을 수 없습니다.");
   }
 
-  const orderedMovies = [];
-  for (let i = 0; i < movieIds.length; i++) {
-    const movie = findMovieById(foundMovies, movieIds[i]);
-    orderedMovies.push(movie);
-  }
+  const moviesById = new Map(foundMovies.map((movie) => [movie.movieId, movie]));
+  const orderedMovies = movieIds.map((movieId) => moviesById.get(movieId));
 
   const items = orderedMovies.map((movie) => toMovieResponse(movie));
-  return { items: items };
+  return { items };
 }

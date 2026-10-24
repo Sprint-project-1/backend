@@ -2,7 +2,7 @@
 
 > 구조와 구현 상태를 함께 기록한다. Figma에는 회원가입/로그인 화면은 없지만 상세 화면에 비로그인 펀딩 입력 및 코멘트 수정 UI가 있다. 화면 설계와 등록 API/DB 동작 결정은 별개다. 팀원별 Docker 환경의 PostgreSQL과 공통 schema/migration/seed를 사용한다. 운영 DB 구성은 미정이다.
 
-> 2026-10-23 코드 기준: 이 저장소에는 Node.js/Express 서버, Prisma schema와 migration, PostgreSQL Compose, 영화 JSON seed, 조회·비교·랭킹 API 및 모의 펀딩 생성·취소·코멘트 수정 API가 있다. 펀딩 API는 원장과 영화 누적액을 트랜잭션으로 갱신하고 비밀번호를 scrypt 해시로 저장한다. DB/HTTP 통합 검증과 별도 `cine-fund` 프런트엔드 연동 완료 여부는 확인되지 않았다.
+> 2026-10-25 코드 기준: 이 저장소에는 Node.js/Express 서버, Prisma schema와 migration, PostgreSQL Compose, 영화 JSON seed, 조회·비교·랭킹 API 및 모의 펀딩 생성·취소·코멘트 수정 API가 있다. 펀딩 API는 원장과 영화 누적액을 트랜잭션으로 갱신하고 비밀번호를 scrypt 해시로 저장한다. DB/HTTP 통합 검증과 별도 `cine-fund` 프런트엔드 연동 완료 여부는 확인되지 않았다.
 
 ## 구성도
 

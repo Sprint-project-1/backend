@@ -1,6 +1,6 @@
 # CineFund API 명세
 
-> **상태: 프런트엔드·백엔드 구현 기준 제안, 구현 현황 갱신 2026-10-23.** 구현된 경로는 `GET /health`, 영화 목록·상세·코멘트 조회, 랭킹 조회, 비교, 펀딩 생성·취소 및 코멘트 수정이다. 아래 `/api` 계약은 페이지 담당자 초안을 통합한 구현 기준이다. 실제 결제, 로그인, 회원가입은 포함하지 않는다. DB/HTTP 통합 검증 및 프런트엔드 연동 완료 여부는 별도 확인이 필요하다.
+> **상태: 프런트엔드·백엔드 구현 기준 제안, 구현 현황 갱신 2026-10-25.** 아래 경로의 구현 코드를 확인했다: `GET /health`, 영화 목록·상세·코멘트 조회, 랭킹 조회, 비교, 펀딩 생성·취소 및 코멘트 수정. 기존 프런트엔드 요청/응답 계약은 변경하지 않았다. 실제 결제, 로그인, 회원가입은 포함하지 않는다. DB/HTTP 통합 검증 및 프런트엔드 연동 완료 여부는 별도로 확인한다.
 
 ## 1. 공통 계약
 
@@ -116,7 +116,7 @@
 - 금액 또는 달성률이 같으면 `movieId` 오름차순으로 정렬한다. 제목 검색 기본 정렬은 `title` 오름차순, 제목이 같으면 `movieId` 오름차순이다.
 - 검색과 명시적 정렬이 없는 첫 요청에서는 100편의 순서를 한 번 무작위로 만든다. 응답 cursor는 그 순서의 다음 위치와 해당 요청의 필터/정렬 조건을 보존한다. 후속 페이지에서 순서를 다시 섞지 않는다.
 - cursor는 불투명한 값이며 클라이언트가 생성·해석하지 않는다. cursor의 요청 조건이 현재 query와 맞지 않거나 유효하지 않으면 400을 반환한다. 서버가 발급할 수 없는 값(전체 개수 이상의 시작 위치 등)도 유효하지 않은 cursor로 본다.
-- `sortBy=amount`, `sortBy=achievementRate`로 페이지를 넘기는 동안 영화의 누적 펀딩액이 바뀌어 순위가 달라지면, 이미 본 영화가 다시 나오거나 아직 안 본 영화가 빠질 수 있다. 이 한계의 개선 방식(첫 요청 때의 순서를 고정하는 방법 등)은 펀딩 생성 구현 시 검토하며 현재는 TBD다.
+- `sortBy=amount`, `sortBy=achievementRate`로 영화 목록 페이지를 넘기는 동안 누적 펀딩액이 바뀌면 offset 기준 결과에서 영화가 중복되거나 빠질 수 있다. 이 동적 정렬 한계는 현재 남아 있다. 랭킹 전용 API는 `seenIds`를 cursor에 보관해 이미 반환한 영화를 제외하므로 중복은 막지만, 여러 페이지를 합친 전체 정렬 순서를 고정하지는 않는다.
 - 마지막 페이지는 `nextCursor: null`, `hasMore: false`다. 다음 항목이 없을 때 빈 페이지를 추가로 반환하지 않는다.
 - 이 API는 페이지 번호 대신 cursor를 사용한다. 영화 탐색 UI는 페이지별 cursor를 메모리에 보관해 번호형 페이지 컨트롤을 연결한다. 방문하지 않은 페이지 번호로 바로 이동할 수 없으며, 검색어·정렬·페이지 크기가 바뀌면 페이지와 cursor 캐시를 초기화한다.
 
@@ -305,13 +305,13 @@ cursor는 마지막으로 응답한 코멘트의 위치(`createdAt`, `fundingId`
 }
 ```
 
-- 네 필드는 모두 요청에 포함한다. `amount`, `nickname`, `password`는 비어 있지 않아야 하며 `comment` 빈 값 허용 여부는 TBD다.
+- 네 필드는 모두 요청에 포함한다. `amount`, `nickname`, `password`는 비어 있지 않아야 한다. `comment`는 빈 문자열을 허용하고 앞뒤 공백을 보존한다.
 - `amount`: 10진 정수 문자열, `1` 이상, PostgreSQL signed `BIGINT` 최댓값 이하. 통화는 KRW다. 소수, 부호, 지수 표기는 허용하지 않는다.
 - `nickname`: 앞뒤 공백 제거 후 1~8 Unicode code point.
-- `comment`: 문자열, 최대 100 Unicode code point. 빈 코멘트 허용 여부와 앞뒤 공백 처리 규칙은 TBD다.
+- `comment`: 문자열, 최대 100 Unicode code point. 빈 문자열을 허용하며 앞뒤 공백을 제거하지 않는다.
 - `password`: 총 8~12자이며 영문자(`A-Z`, `a-z`)와 숫자(`0-9`)를 각각 하나 이상 포함한다. 펀딩 생성, 취소, 코멘트 수정에서 같은 기준을 적용한다. 생성 시 평문으로 저장·응답·로그에 남기지 않고 검증된 단방향 비밀번호 해시로 저장한다.
 - 시안의 동의 체크 항목은 문구와 동의 기록의 필요성이 확정되지 않았다. 의미와 서버 보관 필요성을 정하기 전까지 요청 필드로 간주하지 않는다. 이 항목을 펀딩 생성 필수 조건으로 확정하면 요청에 동의 여부를 추가하고 관련 화면/API 문서를 함께 갱신한다.
-- 요청값 검증에 실패하면 400, 해당 영화가 없으면 404다. 빈 코멘트 허용 여부와 앞뒤 공백 처리 규칙은 팀 결정 후 이 계약을 갱신한다.
+- 요청값 검증에 실패하면 400, 해당 영화가 없으면 404다.
 
 Funding 원장 생성과 `Movie.totalFundedAmount` 증가는 하나의 DB 트랜잭션에서 처리한다. 누적액 증가는 동시 요청에서도 유실되지 않도록 원자적으로 반영하며, `totalFundedAmount`는 해당 영화 Funding 기록의 금액 합과 일치시킨다. 사용자가 취소를 확인하면 아래 취소 API로 모의 기록을 제거할 수 있다. 실제 결제는 없다.
 
@@ -348,7 +348,7 @@ Funding 원장 생성과 `Movie.totalFundedAmount` 증가는 하나의 DB 트랜
 }
 ```
 
-두 필드는 모두 필수다. `fundingId`는 양의 정수 ID다. BigInt ID는 경로에서 10진수 문자열로 전달한다. 비밀번호는 영문자와 숫자를 각각 하나 이상 포함한 8~12자여야 하며, 새 `comment`는 최대 100 Unicode code point다. 빈 값 및 코멘트 공백 정규화 규칙은 TBD다. 비밀번호가 틀리면 403 `INVALID_CREDENTIAL`, 기록이 없으면 404 `FUNDING_NOT_FOUND`, 입력 형식이 잘못되면 400을 반환한다. 수정 실패 시 기록은 변경하지 않는다.
+두 필드는 모두 필수다. `fundingId`는 양의 정수 ID다. BigInt ID는 경로에서 10진수 문자열로 전달한다. 비밀번호는 영문자와 숫자를 각각 하나 이상 포함한 8~12자여야 하며, 새 `comment`는 최대 100 Unicode code point다. 빈 문자열을 허용하고 공백은 보존한다. 비밀번호가 틀리면 403 `INVALID_CREDENTIAL`, 기록이 없으면 404 `FUNDING_NOT_FOUND`, 입력 형식이 잘못되면 400을 반환한다. 수정 실패 시 기록은 변경하지 않는다.
 
 성공 응답 (200):
 
@@ -460,7 +460,7 @@ Funding 원장 생성과 `Movie.totalFundedAmount` 증가는 하나의 DB 트랜
 
 ## 11. 구현 전제 및 완료 체크
 
-이 문서의 endpoint는 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `GET /api/rankings`, `POST /api/movies/{movieId}/fundings`, `POST /api/fundings/{fundingId}/cancel`, `PATCH /api/fundings/{fundingId}/comment`, `POST /api/comparisons`다. 홈 Top 3는 목록 endpoint를 재사용하고 랭킹 화면은 전용 endpoint를 사용한다. 구현 상태는 1장의 표를 따른다. 모든 endpoint 코드가 존재한다. 펀딩 endpoint는 DB/HTTP 통합 검증과 FE 연동을 아직 확인하지 않았다.
+이 문서의 endpoint는 `GET /api/movies`, `GET /api/movies/{movieId}`, `GET /api/movies/{movieId}/comments`, `GET /api/rankings`, `POST /api/movies/{movieId}/fundings`, `POST /api/fundings/{fundingId}/cancel`, `PATCH /api/fundings/{fundingId}/comment`, `POST /api/comparisons`다. 홈 Top 3는 목록 endpoint를 재사용하고 랭킹 화면은 전용 endpoint를 사용한다. 구현 상태는 1장의 표를 따른다. 모든 endpoint 코드가 존재하며, 펀딩 endpoint의 DB/HTTP 통합 검증과 FE 연동은 별도 확인 대상이다.
 
 - [ ] Prisma 모델/실제 DB와 공통 영화 응답 모델 필드가 일치하는지 확인한다. 필드가 없으면 schema/seed를 먼저 맞춘다.
 - [ ] 누적액의 단일 원천을 정하고 목록·상세·비교·랭킹이 같은 값을 반환하게 한다.
@@ -470,7 +470,7 @@ Funding 원장 생성과 `Movie.totalFundedAmount` 증가는 하나의 DB 트랜
 - [x] FE의 번호형 페이지 UI는 메모리의 페이지별 cursor 캐시로 연결한다. 다음 페이지 cursor를 저장하고, 검색어·정렬·페이지 크기가 바뀌면 현재 페이지와 cursor 캐시를 초기화한다. 방문하지 않은 페이지로 바로 이동하는 기능은 지원하지 않는다.
 - [ ] 펀딩 참여 시안의 동의 체크 문구/기록 필요성을 정하고, 필요하면 생성 요청 계약에 포함한다.
 - [x] 펀딩 비밀번호는 영문자와 숫자를 각각 하나 이상 포함한 8~12자로 정하고 생성·취소·코멘트 수정에서 같은 검증을 적용한다.
-- [ ] 빈 코멘트 허용 여부와 공백 정규화 규칙을 결정하고 생성/수정 검증을 맞춘다.
+- [x] 코멘트는 빈 문자열을 허용하고 앞뒤 공백을 보존한다. 생성/수정 검증이 같은 규칙을 적용한다.
 - [ ] 익명 펀딩 생성 및 비밀번호 검증 endpoint에 적용할 요청 제한/반복 실패 보호를 보안 정책과 맞춘다.
 - [ ] 상세·비교 화면에서 동일한 공통 필드명과 null 처리 규칙을 사용한다.
 - [ ] API 구현 및 통합 검증 시 정상·빈 결과·오류·페이지 경계·비교 ID 검증 시나리오를 확인한다.

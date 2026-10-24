@@ -1,6 +1,6 @@
 # 데이터베이스 스키마
 
-> 현재 구현 기준 문서. 기준 파일은 `prisma/schema.prisma`와 적용된 migration이다. 영화 조회 및 펀딩 생성·취소·코멘트 수정 API 코드가 구현되어 있으며, DB/HTTP 통합 검증 상태는 별도로 확인한다. API 계약은 `docs/API_SPEC.md`를 따른다.
+> 현재 구현 기준 문서. 기준 파일은 `prisma/schema.prisma`와 적용된 migration이다. 영화 조회 및 펀딩 생성·취소·코멘트 수정 API 코드가 구현되어 있다. API 계약은 `docs/API_SPEC.md`를 따른다.
 
 ## 현재 구현된 모델
 
@@ -77,4 +77,4 @@ Funding에는 `(movieId, createdAt, fundingId)` 인덱스가 있다. 실제 필�
 
 - 팀원별 Docker PostgreSQL은 독립 데이터베이스이며, 공통 기준은 Prisma schema와 migration이다. 로컬 데이터/볼륨과 `.env`는 Git에 올리지 않는다.
 - migration이 데이터베이스 구조의 이력이다. schema를 직접 바꾸고 migration 없이 공유하지 않는다. 공용 통합/운영 DB는 별도 결정 사항이다.
-- 새 migration을 만들거나 수정할 때는 `pnpm db:migrations:check`를 실행한다. 신규 migration의 `DROP`, `TRUNCATE`, `DELETE FROM`은 검사에서 차단한다. 이미 적용된 `funding_goal` 제거 migration은 이력 보존을 위해 해시로 고정하며 파일을 수정하지 않는다.
+- 새 migration을 만들 때는 `pnpm db:migrations:check`를 실행한다. 신규 migration의 `DROP`, `TRUNCATE`, `DELETE FROM`은 검사에서 차단한다. 기존 `funding_goal` 제거 migration에는 `DROP COLUMN`이 들어 있지만 이미 적용된 migration 이력이라 내용을 재작성하지 않고 해시로 고정한다. 체크 스크립트는 이 파일의 해시가 바뀌거나 새 destructive SQL이 추가되면 실패한다. 영화·펀딩 데이터를 비우는 명령을 운영 절차로 사용하지 않는다.
