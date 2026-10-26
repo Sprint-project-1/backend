@@ -2,9 +2,22 @@
 
 CineFund 백엔드를 **내 PC에서 처음 실행하는 방법**, **다음 작업일부터 실행하는 방법**, **Prisma DB 구조**를 정리한 문서입니다.
 
-> **기준: 2026-10-19 백엔드 코드**  
-> 구현 완료: Docker PostgreSQL 18, Prisma 7.10.0, 영화 100편 JSON(출연 배우 포함), DB 마이그레이션·시드·검증, Express 서버와 `GET /health`.  
-> **아직 미구현:** 영화 목록·상세·검색·랭킹·후원 관련 Express API. `pnpm dev`만으로 프론트엔드에서 영화 API를 호출할 수 있는 것은 아닙니다.
+> **기준: 2026-10-25 백엔드 코드**
+> 구현 완료: Docker PostgreSQL 18, Prisma 7.10.0, 영화 100편 JSON, DB 마이그레이션·시드·검증, Express 서버의 조회·비교·랭킹 API와 모의 펀딩 생성·취소·코멘트 수정 API. 펀딩 생성/취소는 원장과 영화 누적액을 DB 트랜잭션으로 갱신하며 비밀번호는 scrypt 단방향 해시로 저장합니다.
+> **검증 상태:** DB 없는 단위 테스트와 DB seed 검증은 각각 `pnpm test`, `pnpm test:db`로 수행합니다. 펀딩 API DB/HTTP 통합 검증과 프런트엔드 연동은 별도 확인이 필요합니다. 코드 구현 완료가 화면 연동 완료를 뜻하지는 않습니다.
+
+### 랭킹 API 사용 방법
+
+```http
+GET /api/rankings?limit=10&sortBy=amount&order=desc
+GET /api/rankings?limit=10&sortBy=achievementRate&order=asc
+```
+
+`limit`은 기본 10, 최대 50이며, `sortBy`는 기본 `amount`, `order`는 기본 `desc`입니다. 응답은 공통 영화 모델의 `items`와 `page.nextCursor`, `page.hasMore`를 포함합니다.
+
+첫 요청에는 `cursor`를 생략하고, 다음 요청에는 같은 `limit`, `sortBy`, `order`와 이전 응답의 `page.nextCursor`를 그대로 전달합니다. URL에 넣을 때는 query 값으로 인코딩합니다. `hasMore: false`, `nextCursor: null`이면 조회를 끝내고, 정렬 조건이나 페이지 크기를 바꾸면 cursor를 초기화합니다.
+
+랭킹 cursor는 이미 반환한 영화 ID(`seenIds`)를 누적합니다. 매 요청에서 최신 데이터로 정렬한 뒤 이미 본 영화를 제외하므로, 금액이 변해도 이미 조회한 영화가 다시 나오지 않습니다. 최초 순위를 고정하지 않으므로 여러 페이지를 합친 전체 정렬 순서는 보장하지 않습니다. 홈 Top 3는 기존 `GET /api/movies?limit=3&sortBy=amount&order=desc`를 사용합니다. 상세 계약과 현재 검증 한계는 [API 명세](docs/API_SPEC.md#랭킹-전용-조회)를 참고하세요.
 
 ## 1. 시작 전 — 버전 확인
 
@@ -36,7 +49,7 @@ pnpm db:migrate                # ④ movies / fundings 테이블 생성
 pnpm db:generate               # ⑤ Prisma Client 생성
 pnpm db:seed                   # ⑥ 준비된 JSON 영화 100편을 DB에 저장
 pnpm test:db                   # ⑦ 실제 DB 연결 및 영화 정보 검증
-pnpm test                      # ⑧ 영화 선정 규칙 단위 테스트
+pnpm test                      # ⑧ DB 없는 단위 테스트
 pnpm dev                       # ⑨ Express 서버 실행 (기본 3000번 포트)
 ```
 
@@ -54,14 +67,18 @@ pnpm dev                       # ⑨ Express 서버 실행 (기본 3000번 포�
 DATABASE_URL="postgresql://cinefund:cinefund_local@127.0.0.1:5435/cinefund?schema=public"
 TMDB_API_KEY=""
 TMDB_API_TOKEN=""
+CORS_ORIGINS="http://localhost:5173"
 ```
 
 | 설정                                 | 뜻                                         | 일반 팀원에게 필요한가?       |
 | ------------------------------------ | ------------------------------------------ | ----------------------------- |
 | `DATABASE_URL`                       | 내 PC의 Docker PostgreSQL 연결 주소        | **필수** (기본값 그대로 사용) |
 | `TMDB_API_KEY` 또는 `TMDB_API_TOKEN` | TMDB 영화 목록을 **새로 선정할 때만** 사용 | **불필요** (공란 유지)        |
+| `CORS_ORIGINS`                       | 브라우저에서 이 API를 호출할 프런트엔드 주소. 쉼표로 여러 개 가능. 비워 두면 다른 Origin은 허용하지 않음 | 프런트엔드와 연동할 때 필요. 예시는 Vite 기본 포트(`5173`)이며 실제 프런트엔드 주소에 맞춰 수정 |
 
 `5435`는 **내 PC에서 접속할 포트**이고, Docker 내부 PostgreSQL 포트는 `5432`입니다. `compose.yaml`의 사용자 이름·비밀번호·DB 이름과 `.env`가 서로 일치해야 합니다.
+
+`.env`는 서버가 **시작할 때 한 번만** 읽습니다. 값을 바꾼 뒤에는 `pnpm dev`를 껐다가 다시 실행하세요. `pnpm dev`(`node --watch`)는 소스 파일 변경은 자동으로 반영하지만 `.env` 변경은 감지하지 않습니다. 배포 환경의 허용 주소(`CORS_ORIGINS`)는 아직 정해지지 않았습니다(TBD).
 
 **`.env`와 TMDB 실제 키는 GitHub에 올리지 마세요.** `.env.example`만 공유합니다.
 
@@ -80,7 +97,7 @@ pnpm dev         # 백엔드 개발 서버 시작 (Ctrl + C로 서버 종료)
 - 팀에서 **영화 JSON 업데이트에 합의한 경우에만**: `pnpm db:seed` (DB 상태 확인 후)
 - 작업 후 Docker DB 종료: `pnpm db:down` (**DB 데이터 유지**)
 
-> **주의:** `pnpm exec prisma migrate reset` 또는 `docker compose down -v`는 기존 DB 데이터를 삭제할 수 있습니다. 팀원의 영화·후원 기록이 있는 DB에서 임의로 실행하지 마세요.
+> **데이터 보호:** `pnpm exec prisma migrate reset`과 `docker compose down -v`는 기존 DB 데이터를 삭제할 수 있으므로 실행하지 마세요. 일반 종료는 `pnpm db:down`을 사용하며, Docker 볼륨의 데이터는 유지됩니다.
 
 ## 5. 폴더 구조 — 어디를 수정해야 할까?
 
@@ -94,14 +111,46 @@ cinefund-backend/
 │   └── seed.js                   # 영화 JSON → PostgreSQL 저장
 ├── src/
 │   ├── config/db.js              # Prisma로 DB 연결
+│   ├── errors/
+│   │   └── createError.js        # status·code를 담은 오류 객체 생성
+│   ├── middlewares/
+│   │   ├── cors.js               # 허용한 프런트엔드 주소에 CORS 헤더 추가
+│   │   ├── errorHandler.js       # 모든 오류를 공통 JSON 형식으로 응답, DB 연결 실패는 503
+│   │   └── notFound.js           # 없는 경로를 404로 처리
 │   ├── movies/
 │   │   ├── movieData.js          # JSON 읽기·검증·선정용 최소 제작비 기준 확인
 │   │   ├── selectMovies.js       # TMDB에서 영화 100편 선정 (담당자용)
 │   │   └── tmdb.js               # TMDB API 요청 (담당자용)
-│   ├── utils/checkDb.js          # 실제 DB가 JSON과 일치하는지 검사
-│   ├── app.js                    # Express 설정과 GET /health
+│   ├── routes/
+│   │   ├── comparisonRoutes.js   # POST /api/comparisons
+│   │   ├── movieRoutes.js        # GET /api/movies, GET /api/movies/:movieId, GET /api/movies/:movieId/comments
+│   │   └── rankings.js           # GET /api/rankings
+│   ├── services/
+│   │   ├── commentService.js     # 영화별 코멘트 조회(최신순, cursor)
+│   │   ├── movieService.js       # 영화 상세 조회, 목록 페이지 조회, 비교할 영화 조회
+│   │   └── rankingService.js     # 최신 영화 조회, 랭킹 페이지 및 응답 변환
+│   ├── utils/
+│   │   ├── checkDb.js            # 실제 DB가 JSON과 일치하는지 검사
+│   │   ├── commentCursor.js      # 코멘트 cursor 생성·검증
+│   │   ├── commentResponse.js    # DB 펀딩 → 코멘트 응답 변환
+│   │   ├── validators.js         # 영화 ID·펀딩 ID·limit·목록 query·비교 요청 본문 검증
+│   │   ├── movieResponse.js      # DB 영화 → API 공통 응답 모델 변환
+│   │   ├── movieSort.js          # 랜덤·제목·금액·달성률 정렬
+│   │   ├── moviePage.js          # 목록 offset cursor 생성·검증과 페이지 자르기
+│   │   ├── rankingCursor.js      # 랭킹 seenIds cursor 생성·검증
+│   │   └── rankingPage.js        # 최신 정렬, 이미 본 영화 제외, 다음 페이지 생성
+│   ├── app.js                    # Express 설정, /health, /api/movies·/api/comparisons·/api/rankings 연결, 오류 처리
 │   └── server.js                 # 서버 실행
-├── tests/movieData.test.js       # 단위 테스트
+├── tests/
+│   ├── movieData.test.js         # 영화 JSON·선정 기준 단위 테스트
+│   ├── commentCursor.test.js     # 코멘트 cursor 단위 테스트
+│   ├── commentResponse.test.js   # 코멘트 응답 변환 단위 테스트
+│   ├── validators.test.js        # 요청 값 검증 단위 테스트
+│   ├── movieResponse.test.js     # 응답 변환 단위 테스트
+│   ├── movieSort.test.js         # 정렬 단위 테스트
+│   ├── moviePage.test.js         # cursor·페이지네이션 단위 테스트
+│   ├── errorHandler.test.js      # 오류 응답(400·404·500·503) 단위 테스트
+│   └── cors.test.js              # CORS 헤더·preflight 단위 테스트
 ├── docs/                         # 설계·API 계약·팀 협업 문서
 ├── compose.yaml                  # Docker PostgreSQL 설정
 ├── prisma.config.js              # Prisma 환경설정/마이그레이션 위치
@@ -118,7 +167,7 @@ cinefund-backend/
 | Prisma 모델 | 실제 DB 테이블 | 용도                                                            |
 | ----------- | -------------- | --------------------------------------------------------------- |
 | `Movie`     | `movies`       | 영화 100편, USD 제작비·KRW 누적 후원액 저장                       |
-| `Funding`   | `fundings`     | 어느 영화에 누가 얼마를 후원했는지 기록하는 구조 (API는 미구현) |
+| `Funding`   | `fundings`     | 모의 펀딩 원장. 생성·취소·코멘트 수정 API에서 사용 |
 
 ### 6-1. `Movie` — 영화 한 편의 정보
 
@@ -234,7 +283,7 @@ src/utils/checkDb.js (pnpm test:db)
 | 누적 후원액 | `totalFundedAmount` | **KRW** | 신규 영화는 0원           |
 | 개별 후원액 | `Funding.amount`    | **KRW** | 향후 후원 API에서 사용    |
 
-**선정용 고정 환율:** 1 USD = 1,400 KRW는 최소 제작비 3,500만 원 상당(25,000 USD) 검증에만 사용합니다. 목표 펀딩액을 DB에 저장하거나 달성률을 계산하지 않습니다.
+**선정용 고정 환율:** 1 USD = 1,400 KRW는 최소 제작비 3,500만 원 상당(25,000 USD) 검증에만 사용합니다. 별도 목표액 컬럼은 없습니다. API 명세의 화면 규칙은 `productionBudget` 숫자를 환산 없이 KRW 목표액으로 표시하고, 달성률은 `totalFundedAmount / productionBudget × 100`으로 계산하는 것입니다. 서버는 달성률 정렬을 지원하며 달성률 자체를 응답 필드로 반환하지 않습니다.
 
 ### 7-3. 영화 관련 JavaScript 파일이 3개인 이유
 
@@ -307,7 +356,8 @@ Prisma의 `BigInt`는 일반 JSON으로 그대로 응답할 수 없어, 현재 `
 | `movieDetails.json` 오류       | JSON 존재 여부와 `actors`·제작비·100편 조건 확인                                                                                    |
 | `pnpm db:seed`에서 목록 불일치 | **기존 DB 영화 목록과 JSON이 다름**. 기존 후원 기록 확인 후 담당자와 조율                                                           |
 | `pnpm test`만 성공             | DB 검사까지 완료한 게 아님. `pnpm test:db` 별도로 실행                                                                              |
-| `/api/movies` 요청이 안 됨     | **현재 구현된 라우트는 `/health`뿐**. 서비스 API는 별도 구현 필요                                                                   |
+| API 요청이 실패함     | 구현 경로와 요청/응답 계약은 [API 명세](docs/API_SPEC.md)를 확인합니다. POST/PATCH 요청에는 `Content-Type: application/json` 헤더를 사용합니다. `pnpm dev` 실행, `pnpm db:up`·`pnpm db:migrate`·`pnpm db:generate`·`pnpm db:seed`로 DB 준비를 확인합니다. 응답이 `{ "error": ... }`이면 `code`를 확인합니다. |
+| 브라우저 콘솔에 CORS 오류        | `.env`의 `CORS_ORIGINS`가 프런트엔드 주소(`http://`, 포트까지 정확히)와 같은지 확인하고, 수정했다면 `pnpm dev`를 다시 시작. curl에서는 문제없고 브라우저에서만 생긴다면 대부분 이 설정 |
 
 ## 11. 협업할 때 주의할 점
 

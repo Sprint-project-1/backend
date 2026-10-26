@@ -11,6 +11,7 @@
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
     "db:migrate": "prisma migrate deploy",
+    "db:migrations:check": "node scripts/checkMigrations.js",
     "db:generate": "prisma generate",
     "movies:select": "node src/movies/selectMovies.js",
     "db:seed": "node prisma/seed.js",

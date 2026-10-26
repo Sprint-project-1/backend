@@ -2,7 +2,7 @@
 
 > 시작일/마감일과 기간은 미제공. 날짜를 추정하지 않고 합의 후 입력한다.
 
-> 저장소 현황: 프런트엔드는 별도 저장소에 scaffold와 화면을 보유하고 있다. 이 백엔드 저장소에는 Express health endpoint, Prisma schema/migration, PostgreSQL Compose 및 JSON seed 골격이 있다. 영화·비교·펀딩 서비스 API와 FE 연동은 미완료다. 마일스톤은 현재 상태에서 이어지는 작업 계획이다.
+> 저장소 현황 (2026-10-25 코드 기준): 프런트엔드는 별도 저장소에서 관리한다. 이 저장소에는 Express health endpoint, Prisma schema/migration, PostgreSQL Compose, JSON seed, 영화 조회·비교·랭킹 API, 모의 펀딩 생성·취소 및 코멘트 수정 API가 구현되어 있다. 펀딩 API의 DB/HTTP 통합 검증과 FE 연동 여부는 코드 구현과 별도로 확인해야 한다.
 
 | 단계 | 시작 | 종료 | 산출물 | 완료 조건 |
 |---|---|---|---|---|
